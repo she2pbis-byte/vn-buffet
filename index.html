@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Заказ из меню по QR-коду</title>
+  
+  <!-- Подключение Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Иконки Lucide для наглядного UI -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- Конфигурация кастомных цветов из предоставленной палитры -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              peach: '#C7886B',     // Песочно-персиковый / Терракота
+              dark: '#1F1713',      // Очень темный шоколад
+              brown: '#604539',     // Шоколадно-коричневый
+              cream: '#FFECD2',     // Светлый кремово-бежевый фон
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Стили для скрытия скроллбаров в меню категорий -->
+  <style>
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    /* Стили анимации появления */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in {
+      animation: fadeIn 0.3s ease-out forwards;
+    }
+  </style>
+</head>
+<body class="bg-brand-cream text-brand-dark font-sans min-h-screen selection:bg-brand-peach selection:text-white">
+
+  <div id="app" class="max-w-md mx-auto bg-brand-cream min-h-screen relative flex flex-col shadow-2xl">
+    <!-- Приложение монтируется динамически через JS -->
+    <div id="loader" class="flex flex-col items-center justify-center flex-1 py-20">
+      <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-peach"></div>
+      <p class="mt-4 text-brand-brown font-medium">Загрузка меню...</p>
+    </div>
+  </div>
+
+  <script>
+    // --- Состояние приложения ---
+    let state = {
+      screen: 'login', // 'login', 'guest_menu', 'admin_panel'
+      tableNumber: null,
+      menuData: null,
+      activeCategoryId: '',
+      cart: {}, // { itemId: quantity }
+      orders: [], // Список заказов [{id, table, items: [{id, name, price, count}], status: 'new'|'served', timestamp, total}]
+      adminTab: 'new', // 'new' | 'served'
+      selectedBillOrder: null, // Хранение выбранного заказа для отображения чека/счета
+    };
+
+    // --- Константы системы безопасности ---
+    const ADMIN_PASSWORD = "56165616";
+    const MIN_TABLE = 1;
+    const MAX_TABLE = 30;
+
+    // --- Загрузка и инициализация данных ---
+    async function initApp() {
+      try {
+        // Загрузка меню из файла menu.json
+        const response = await fetch('menu.json');
+        if (!response.ok) throw new Error('Не удалось загрузить menu.json');
+        state.menuData = await response.json();
+        
+        if (state.menuData && state.menuData.categories.length > 0) {
+          state.activeCategoryId = state.menuData.categories[0].id;
+        }
+
+        // Загрузка существующих заказов из локального хранилища (имитация БД)
+        const localOrders = localStorage.getItem('qr_restaurant_orders');
+        state.orders = localOrders ? JSON.parse(localOrders) : [];
+
+        // Проверяем наличие параметра стола в URL (?table=15)
+        const urlParams = new URLSearchParams(window.location.search);
+        const tableParam = urlParams.get('table');
+
+        if (tableParam) {
+          const tableNum = parseInt(tableParam, 10);
+          if (tableNum >= MIN_TABLE && tableNum <= MAX_TABLE) {
+            state.tableNumber = tableNum;
+            state.screen = 'guest_menu';
+          } else {
+            showNotification(`Стол №${tableParam} не существует. Допустимые столы: ${MIN_TABLE}-${MAX_TABLE}`, 'error');
+          }
+        }
+
+        render();
+      } catch (error) {
+        console.error(error);
+        document.getElementById('app').innerHTML = `
+          <div class="p-8 text-center flex flex-col justify-center items-center min-h-screen">
+            <i data-lucide="alert-triangle" class="w-16 h-16 text-red-500 mb-4"></i>
+            <h2 class="text-xl font-bold text-brand-dark mb-2">Ошибка инициализации</h2>
+            <p class="text-brand-brown text-sm mb-6">Убедитесь, что файл <strong>menu.json</strong> лежит в той же папке, что и index.html, и вы открыли страницу через локальный сервер (Live Server) или загрузили на хостинг.</p>
+            <button onclick="location.reload()" class="bg-brand-peach text-white font-bold py-2 px-6 rounded-xl hover:bg-brand-brown transition">Повторить попытку</button>
+          </div>
+        `;
+        lucide.createIcons();
+      }
+    }
+
+    // --- Хелперы работы с корзиной ---
+    function addToCart(itemId) {
+      state.cart[itemId] = (state.cart[itemId] || 0) + 1;
+      render();
+    }
+
+    function removeFromCart(itemId) {
+      if (state.cart[itemId]) {
+        state.cart[itemId] -= 1;
+        if (state.cart[itemId] === 0) {
+          delete state.cart[itemId];
+        }
+      }
+      render();
+    }
+
+    function clearCart() {
+      state.cart = {};
+      render();
+    }
+
+    // Поиск товара в меню по ID
+    function findMenuItem(itemId) {
+      for (const category of state.menuData.categories) {
+        const item = category.items.find(i => i.id === itemId);
+        if (item) return item;
+      }
+      return null;
+    }
+
+    // Подсчет общей стоимости корзины
+    function getCartTotal() {
+      return Object.entries(state.cart).reduce((total, [itemId, count]) => {
+        const item = findMenuItem(itemId);
+        return total + (item ? item.price * count : 0);
+      }, 0);
+    }
+
+    // Подсчет общего количества товаров в корзине
+    function getCartCount() {
+      return Object.values(state.cart).reduce((a, b) => a + b, 0);
+    }
+
+    // --- Обработчики событий ---
+    function handleGuestLogin(event) {
+      event.preventDefault();
+      const inputVal = document.getElementById('tableInput').value;
+      const tableNum = parseInt(inputVal, 10);
+
+      if (tableNum >= MIN_TABLE && tableNum <= MAX_TABLE) {
+        state.tableNumber = tableNum;
+        state.screen = 'guest_menu';
+        render();
+      } else {
+        showNotification(`Пожалуйста, введите номер стола от ${MIN_TABLE} до ${MAX_TABLE}`, 'error');
+      }
+    }
+
+    function handleAdminLogin(event) {
+      event.preventDefault();
+      const passInput = document.getElementById('passwordInput').value;
+
+      if (passInput === ADMIN_PASSWORD) {
+        state.screen = 'admin_panel';
+        render();
+      } else {
+        showNotification('Неверный пароль администратора!', 'error');
+      }
+    }
+
+    function submitOrder() {
+      if (Object.keys(state.cart).length === 0) return;
+
+      const orderItems = Object.entries(state.cart).map(([itemId, count]) => {
+        const item = findMenuItem(itemId);
+        return {
+          id: itemId,
+          name: item.name,
+          price: item.price,
+          count: count
+        };
+      });
+
+      const newOrder = {
+        id: 'ord_' + Date.now(),
+        table: state.tableNumber,
+        items: orderItems,
+        status: 'new',
+        timestamp: new Date().toISOString(),
+        total: getCartTotal()
+      };
+
+      // Добавляем заказ в начало списка
+      state.orders.unshift(newOrder);
+      localStorage.setItem('qr_restaurant_orders', JSON.stringify(state.orders));
+
+      // Очищаем корзину и выводим модал успеха
+      state.cart = {};
+      showOrderSuccessModal();
+    }
+
+    function updateOrderStatus(orderId, newStatus) {
+      state.orders = state.orders.map(order => {
+        if (order.id === orderId) {
+          return { ...order, status: newStatus };
+        }
+        return order;
+      });
+      localStorage.setItem('qr_restaurant_orders', JSON.stringify(state.orders));
+      render();
+      showNotification(newStatus === 'served' ? 'Заказ успешно отмечен как отданный!' : 'Статус обновлен', 'success');
+    }
+
+    function deleteOrder(orderId) {
+      if (confirm('Вы уверены, что хотите окончательно удалить этот заказ?')) {
+        state.orders = state.orders.filter(order => order.id !== orderId);
+        localStorage.setItem('qr_restaurant_orders', JSON.stringify(state.orders));
+        render();
+        showNotification('Заказ удален', 'info');
+      }
+    }
+
+    function openBill(orderId) {
+      const order = state.orders.find(o => o.id === orderId);
+      if (order) {
+        state.selectedBillOrder = order;
+        render();
+      }
+    }
+
+    function closeBillModal() {
+      state.selectedBillOrder = null;
+      render();
+    }
+
+    function printBill() {
+      const printWindow = window.open('', '_blank');
+      const order = state.selectedBillOrder;
+      if (!order) return;
+
+      const itemsHtml = order.items.map(item => `
+        <tr style="border-bottom: 1px dashed #604539;">
+          <td style="padding: 8px 0; font-family: monospace;">${item.name} x ${item.count}</td>
+          <td style="padding: 8px 0; text-align: right; font-family: monospace;">${item.price * item.count} ₽</td>
+        </tr>
+      `).join('');
+
+      printWindow.document.write(`
+        <html>
+        <head>
+          <title>Счет - Стол №${order.table}</title>
+          <style>
+            body { font-family: 'Courier New', Courier, monospace; color: #1F1713; background: #fff; padding: 20px; max-width: 300px; margin: 0 auto; }
+            h2 { text-align: center; margin-bottom: 5px; }
+            .center { text-align: center; }
+            .right { text-align: right; }
+            .divider { border-top: 1px dashed #000; margin: 10px 0; }
+            table { width: 100%; border-collapse: collapse; }
+          </style>
+        </head>
+        <body onload="window.print(); window.close();">
+          <h2>ГОСТЕВОЙ СЧЕТ</h2>
+          <p class="center">Спасибо за ваш визит!</p>
+          <div class="divider"></div>
+          <p><strong>ЗАКАЗ:</strong> ${order.id.substring(4, 10)}</p>
+          <p><strong>СТОЛ №:</strong> ${order.table}</p>
+          <p><strong>ДАТА:</strong> ${new Date(order.timestamp).toLocaleString('ru-RU')}</p>
+          <div class="divider"></div>
+          <table>
+            <thead>
+              <tr style="border-bottom: 1px solid #000;">
+                <th style="text-align: left; padding-bottom: 5px;">Позиция</th>
+                <th style="text-align: right; padding-bottom: 5px;">Сумма</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+            </tbody>
+          </table>
+          <div class="divider"></div>
+          <h3 style="display: flex; justify-content: space-between; margin-top: 10px;">
+            <span>ИТОГО К ОПЛАТЕ:</span>
+            <span>${order.total} ₽</span>
+          </h3>
+          <div class="divider"></div>
+          <p class="center" style="font-size: 12px; margin-top: 20px;">ООО "Вкусный ресторан"<br>Фискальный чек будет выдан после оплаты на кассе.</p>
+        </body>
+        </html>
+      `);
+      printWindow.document.close();
+    }
+
+    // --- Кастомные Уведомления и Модальные Окна ---
+    function showNotification(message, type = 'info') {
+      const existingToast = document.getElementById('toast');
+      if (existingToast) existingToast.remove();
+
+      const toast = document.createElement('div');
+      toast.id = 'toast';
+      toast.className = `fixed top-4 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-xl shadow-lg font-medium text-sm transition-all duration-300 animate-fade-in flex items-center gap-2 text-white ${
+        type === 'success' ? 'bg-green-600' : type === 'error' ? 'bg-red-600' : 'bg-brand-brown'
+      }`;
+      
+      let icon = 'info';
+      if (type === 'success') icon = 'check-circle';
+      if (type === 'error') icon = 'alert-octagon';
+
+      toast.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4"></i> <span>${message}</span>`;
+      document.body.appendChild(toast);
+      lucide.createIcons();
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translate(-50%, -10px)';
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+
+    function showOrderSuccessModal() {
+      const modal = document.createElement('div');
+      modal.className = "fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in";
+      modal.innerHTML = `
+        <div class="bg-brand-cream border-2 border-brand-brown p-8 rounded-2xl w-full max-w-sm text-center shadow-2xl relative">
+          <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-green-500">
+            <i data-lucide="check" class="w-8 h-8 text-green-600"></i>
+          </div>
+          <h3 class="text-2xl font-bold text-brand-dark mb-2">Заказ отправлен!</h3>
+          <p class="text-brand-brown text-sm mb-6">Стол №${state.tableNumber}. Наша команда уже начала готовить ваш заказ. Пожалуйста, ожидайте.</p>
+          <button id="closeSuccessBtn" class="w-full bg-brand-peach hover:bg-brand-brown text-white font-bold py-3 rounded-xl transition duration-200">
+            Отлично, спасибо!
+          </button>
+        </div>
+      `;
+      document.body.appendChild(modal);
+      lucide.createIcons();
+
+      document.getElementById('closeSuccessBtn').onclick = () => {
+        modal.remove();
+        render();
+      };
+    }
+
+    // --- Функция генерации интерфейса (Рендеринг) ---
+    function render() {
+      const container = document.getElementById('app');
+
+      // ----------------------------------------------------
+      // СЦЕНАРИЙ 1: ЭКРАН ВХОДА (LOGIN SCREEN)
+      // ----------------------------------------------------
+      if (state.screen === 'login') {
+        container.className = "max-w-md mx-auto bg-brand-cream min-h-screen relative flex flex-col justify-between p-6 shadow-2xl";
+        container.innerHTML = `
+          <!-- Логотип/Заголовок -->
+          <div class="flex-1 flex flex-col justify-center py-8">
+            <div class="text-center mb-8">
+              <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-brand-peach text-white mb-3 shadow-md">
+                <i data-lucide="chef-hat" class="w-8 h-8"></i>
+              </div>
+              <h1 class="text-2xl font-extrabold text-brand-dark tracking-tight uppercase">Уютный Ресторан</h1>
+              <p class="text-xs text-brand-brown font-medium mt-1">Экспресс-заказ со стола</p>
+            </div>
+
+            <!-- Блок Гостя -->
+            <div class="bg-white border border-brand-brown/10 p-6 rounded-2xl shadow-sm mb-6">
+              <h2 class="text-md font-bold text-brand-dark mb-4 flex items-center gap-2">
+                <i data-lucide="user" class="w-4 h-4 text-brand-peach"></i> Я — Гость
+              </h2>
+              <form onsubmit="handleGuestLogin(event)">
+                <label class="block text-xs font-semibold text-brand-brown mb-1">Номер стола (от 1 до 30)</label>
+                <div class="flex gap-2">
+                  <input 
+                    type="number" 
+                    id="tableInput" 
+                    placeholder="Например: 12" 
+                    min="${MIN_TABLE}" 
+                    max="${MAX_TABLE}" 
+                    required
+                    class="flex-1 px-4 py-2.5 rounded-xl border border-brand-brown/20 bg-brand-cream/30 focus:outline-none focus:ring-2 focus:ring-brand-peach text-brand-dark font-medium"
+                  >
+                  <button type="submit" class="bg-brand-peach hover:bg-brand-brown text-white font-bold px-6 rounded-xl transition duration-200">
+                    Войти
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Блок Админа -->
+            <div class="bg-white border border-brand-brown/10 p-6 rounded-2xl shadow-sm">
+              <h2 class="text-md font-bold text-brand-dark mb-4 flex items-center gap-2">
+                <i data-lucide="shield-check" class="w-4 h-4 text-brand-brown"></i> Панель сотрудника
+              </h2>
+              <form onsubmit="handleAdminLogin(event)">
+                <label class="block text-xs font-semibold text-brand-brown mb-1">Введите пароль</label>
+                <div class="flex gap-2">
+                  <input 
+                    type="password" 
+                    id="passwordInput" 
+                    placeholder="Пароль администратора" 
+                    required
+                    class="flex-1 px-4 py-2.5 rounded-xl border border-brand-brown/20 bg-brand-cream/30 focus:outline-none focus:ring-2 focus:ring-brand-peach text-brand-dark"
+                  >
+                  <button type="submit" class="bg-brand-brown hover:bg-brand-dark text-white font-bold px-6 rounded-xl transition duration-200">
+                    Войти
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div class="text-center text-xs text-brand-brown/60 pt-4 border-t border-brand-brown/10">
+            &copy; 2026 Уютный Ресторан. Сканируйте QR-код на столе для быстрого доступа.
+          </div>
+        `;
+      }
+
+      // ----------------------------------------------------
+      // СЦЕНАРИЙ 2: ЭКРАН МЕНЮ ДЛЯ ГОСТЯ (GUEST MENU)
+      // ----------------------------------------------------
+      else if (state.screen === 'guest_menu') {
+        container.className = "max-w-md mx-auto bg-brand-cream min-h-screen relative flex flex-col justify-between shadow-2xl";
+        
+        // Поиск активной категории
+        const currentCategory = state.menuData.categories.find(c => c.id === state.activeCategoryId) || state.menuData.categories[0];
+
+        // Категории в горизонтальной прокрутке
+        const categoryTabsHtml = state.menuData.categories.map(cat => {
+          const isActive = cat.id === state.activeCategoryId;
+          return `
+            <button 
+              onclick="state.activeCategoryId = '${cat.id}'; render();" 
+              class="px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+                isActive 
+                  ? 'bg-brand-peach text-white shadow-sm' 
+                  : 'bg-white text-brand-brown border border-brand-brown/10 hover:bg-white/80'
+              }"
+            >
+              ${cat.title}
+            </button>
+          `;
+        }).join('');
+
+        // Список блюд выбранной категории
+        const itemsHtml = currentCategory.items.map(item => {
+          const countInCart = state.cart[item.id] || 0;
+          return `
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-brand-brown/5 flex gap-4 items-center justify-between transition hover:shadow">
+              <div class="flex-1 pr-2">
+                <h3 class="font-bold text-brand-dark text-sm leading-snug">${item.name}</h3>
+                <p class="text-xs text-brand-brown/80 mt-1 line-clamp-2">${item.description || ''}</p>
+                <div class="text-sm font-extrabold text-brand-peach mt-2">${item.price} ₽</div>
+              </div>
+              
+              <div class="flex items-center">
+                ${countInCart > 0 ? `
+                  <div class="flex items-center bg-brand-cream/60 border border-brand-peach/30 rounded-full px-2 py-1 gap-3">
+                    <button onclick="removeFromCart('${item.id}')" class="w-6 h-6 rounded-full bg-white flex items-center justify-center text-brand-peach font-bold hover:bg-brand-peach/10 active:scale-95 transition">-</button>
+                    <span class="font-bold text-sm w-4 text-center text-brand-dark">${countInCart}</span>
+                    <button onclick="addToCart('${item.id}')" class="w-6 h-6 rounded-full bg-white flex items-center justify-center text-brand-peach font-bold hover:bg-brand-peach/10 active:scale-95 transition">+</button>
+                  </div>
+                ` : `
+                  <button 
+                    onclick="addToCart('${item.id}')" 
+                    class="bg-brand-peach hover:bg-brand-brown text-white text-xs font-extrabold px-4 py-2 rounded-full transition active:scale-95 shadow-sm"
+                  >
+                    В корзину
+                  </button>
+                `}
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        // Нижняя панель корзины (всплывает, если корзина не пуста)
+        const cartCount = getCartCount();
+        const cartTotal = getCartTotal();
+        const bottomCartHtml = cartCount > 0 ? `
+          <div class="sticky bottom-0 left-0 right-0 p-4 bg-white/95 border-t border-brand-brown/10 backdrop-blur-md shadow-lg animate-fade-in">
+            <div class="flex justify-between items-center mb-3">
+              <div>
+                <span class="text-xs text-brand-brown font-medium">Выбрано: <strong class="text-brand-dark">${cartCount} поз.</strong></span>
+              </div>
+              <div class="text-right">
+                <span class="text-xs text-brand-brown font-medium">Сумма заказа:</span>
+                <div class="text-lg font-black text-brand-dark">${cartTotal} ₽</div>
+              </div>
+            </div>
+            <div class="flex gap-2">
+              <button onclick="clearCart()" class="px-3 rounded-xl border border-brand-brown/20 hover:bg-red-50 text-red-500 transition" title="Очистить">
+                <i data-lucide="trash-2" class="w-5 h-5"></i>
+              </button>
+              <button onclick="submitOrder()" class="flex-1 bg-brand-peach hover:bg-brand-brown text-white font-bold py-3.5 rounded-xl transition shadow-md active:scale-[0.99] flex items-center justify-center gap-2">
+                <i data-lucide="send" class="w-4 h-4"></i> Отправить заказ кухне
+              </button>
+            </div>
+          </div>
+        ` : '';
+
+        container.innerHTML = `
+          <!-- Верхний колонтитул -->
+          <header class="bg-brand-dark text-brand-cream px-4 py-4 sticky top-0 z-20 flex justify-between items-center shadow-md">
+            <div class="flex items-center gap-2">
+              <div class="bg-brand-peach rounded-lg p-1">
+                <i data-lucide="cup-soda" class="w-5 h-5 text-white"></i>
+              </div>
+              <div>
+                <h2 class="font-extrabold text-sm uppercase tracking-wide">Уютное Меню</h2>
+                <p class="text-[10px] text-brand-cream/80">Категория: ${currentCategory.title}</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="bg-brand-brown px-3 py-1.5 rounded-full text-xs font-bold border border-brand-peach flex items-center gap-1.5 shadow-inner">
+                <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                Стол №${state.tableNumber}
+              </div>
+              <button onclick="state.screen = 'login'; render();" class="text-brand-cream/80 hover:text-white p-1" title="Сменить стол/Выйти">
+                <i data-lucide="log-out" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </header>
+
+          <!-- Табы категорий -->
+          <div class="sticky top-[58px] z-10 bg-brand-cream/90 backdrop-blur-md border-b border-brand-brown/10 py-3 px-4 flex gap-2 overflow-x-auto no-scrollbar">
+            ${categoryTabsHtml}
+          </div>
+
+          <!-- Список блюд -->
+          <main class="flex-1 p-4 space-y-3">
+            ${itemsHtml}
+          </main>
+
+          <!-- Нижняя часть с корзиной -->
+          ${bottomCartHtml}
+        `;
+      }
+
+      // ----------------------------------------------------
+      // СЦЕНАРИЙ 3: ПАНЕЛЬ АДМИНИСТРАТОРА (ADMIN PANEL)
+      // ----------------------------------------------------
+      else if (state.screen === 'admin_panel') {
+        container.className = "max-w-md mx-auto bg-brand-cream min-h-screen relative flex flex-col justify-between shadow-2xl";
+
+        // Фильтрация заказов по вкладкам
+        const newOrders = state.orders.filter(o => o.status === 'new');
+        const servedOrders = state.orders.filter(o => o.status === 'served');
+        const activeOrdersList = state.adminTab === 'new' ? newOrders : servedOrders;
+
+        const tabsHtml = `
+          <div class="flex border-b border-brand-brown/10 bg-white">
+            <button 
+              onclick="state.adminTab = 'new'; render();" 
+              class="flex-1 py-3 text-center text-xs font-bold tracking-wider uppercase border-b-2 transition ${
+                state.adminTab === 'new' 
+                  ? 'border-brand-peach text-brand-peach bg-brand-cream/20' 
+                  : 'border-transparent text-brand-brown/70 hover:text-brand-dark'
+              }"
+            >
+              Новые (${newOrders.length})
+            </button>
+            <button 
+              onclick="state.adminTab = 'served'; render();" 
+              class="flex-1 py-3 text-center text-xs font-bold tracking-wider uppercase border-b-2 transition ${
+                state.adminTab === 'served' 
+                  ? 'border-brand-peach text-brand-peach bg-brand-cream/20' 
+                  : 'border-transparent text-brand-brown/70 hover:text-brand-dark'
+              }"
+            >
+              Отданные (${servedOrders.length})
+            </button>
+          </div>
+        `;
+
+        let ordersHtml = '';
+        if (activeOrdersList.length === 0) {
+          ordersHtml = `
+            <div class="text-center py-20 px-4">
+              <div class="w-16 h-16 bg-white/50 border border-brand-brown/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                <i data-lucide="inbox" class="w-8 h-8 text-brand-brown/40"></i>
+              </div>
+              <h3 class="text-sm font-bold text-brand-dark">Заказов пока нет</h3>
+              <p class="text-xs text-brand-brown/80 mt-1">Как только гость отправит заказ, он появится здесь в реальном времени.</p>
+            </div>
+          `;
+        } else {
+          ordersHtml = activeOrdersList.map(order => {
+            const formattedTime = new Date(order.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+            
+            const itemsListHtml = order.items.map(item => `
+              <div class="flex justify-between items-center text-xs py-1 border-b border-brand-brown/5">
+                <span class="text-brand-dark font-medium">${item.name} <span class="text-brand-peach font-bold">x${item.count}</span></span>
+                <span class="text-brand-brown">${item.price * item.count} ₽</span>
+              </div>
+            `).join('');
+
+            return `
+              <div class="bg-white p-4 rounded-2xl border border-brand-brown/10 shadow-sm space-y-3 animate-fade-in">
+                <!-- Шапка карточки заказа -->
+                <div class="flex justify-between items-start">
+                  <div>
+                    <span class="bg-brand-dark text-brand-cream text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">Стол №${order.table}</span>
+                    <span class="text-[10px] text-brand-brown/60 ml-2">${formattedTime}</span>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-sm font-bold text-brand-peach">${order.total} ₽</div>
+                  </div>
+                </div>
+
+                <!-- Содержимое заказа -->
+                <div class="bg-brand-cream/25 p-2 rounded-xl border border-brand-brown/5">
+                  ${itemsListHtml}
+                </div>
+
+                <!-- Кнопки управления -->
+                <div class="flex gap-2 pt-1">
+                  ${order.status === 'new' ? `
+                    <button 
+                      onclick="updateOrderStatus('${order.id}', 'served')" 
+                      class="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition"
+                    >
+                      <i data-lucide="check" class="w-3.5 h-3.5"></i> Заказ отдан
+                    </button>
+                  ` : `
+                    <button 
+                      onclick="openBill('${order.id}')" 
+                      class="flex-1 bg-brand-peach hover:bg-brand-brown text-white text-xs font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition"
+                    >
+                      <i data-lucide="receipt" class="w-3.5 h-3.5"></i> Сформировать счет
+                    </button>
+                    <button 
+                      onclick="deleteOrder('${order.id}')" 
+                      class="bg-red-50 hover:bg-red-100 text-red-500 border border-red-200 p-2 rounded-lg transition"
+                      title="Удалить"
+                    >
+                      <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                    </button>
+                  `}
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+
+        // Верстка модального окна счета
+        const billModalHtml = state.selectedBillOrder ? `
+          <div class="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+            <div class="bg-white border-2 border-brand-brown p-6 rounded-2xl w-full max-w-sm shadow-2xl relative">
+              <button onclick="closeBillModal()" class="absolute top-4 right-4 text-brand-brown hover:text-brand-dark">
+                <i data-lucide="x" class="w-5 h-5"></i>
+              </button>
+              
+              <!-- Чек для предоплаты/постаплаты -->
+              <div class="text-center pb-4 border-b border-dashed border-brand-brown/30">
+                <i data-lucide="receipt" class="w-10 h-10 text-brand-peach mx-auto mb-2"></i>
+                <h3 class="text-lg font-bold text-brand-dark uppercase">Счет на оплату</h3>
+                <p class="text-xs text-brand-brown">Стол №${state.selectedBillOrder.table}</p>
+              </div>
+
+              <!-- Перечисление -->
+              <div class="py-4 space-y-2 border-b border-dashed border-brand-brown/30 max-h-48 overflow-y-auto no-scrollbar">
+                ${state.selectedBillOrder.items.map(item => `
+                  <div class="flex justify-between text-xs">
+                    <span class="text-brand-dark">${item.name} <strong class="text-brand-brown">x${item.count}</strong></span>
+                    <span class="font-semibold text-brand-dark">${item.price * item.count} ₽</span>
+                  </div>
+                `).join('')}
+              </div>
+
+              <!-- Итог -->
+              <div class="py-4 flex justify-between items-center">
+                <span class="font-bold text-xs text-brand-brown">ИТОГО К ОПЛАТЕ:</span>
+                <span class="text-lg font-black text-brand-peach">${state.selectedBillOrder.total} ₽</span>
+              </div>
+
+              <div class="flex gap-2">
+                <button 
+                  onclick="printBill()" 
+                  class="flex-1 bg-brand-dark hover:bg-brand-brown text-white font-bold py-2.5 rounded-xl transition text-xs flex items-center justify-center gap-1.5"
+                >
+                  <i data-lucide="printer" class="w-4 h-4"></i> Печать чека
+                </button>
+                <button 
+                  onclick="closeBillModal()" 
+                  class="flex-1 bg-brand-peach hover:bg-brand-brown text-white font-bold py-2.5 rounded-xl transition text-xs"
+                >
+                  Закрыть
+                </button>
+              </div>
+            </div>
+          </div>
+        ` : '';
+
+        container.innerHTML = `
+          <!-- Шапка админки -->
+          <header class="bg-brand-dark text-brand-cream px-4 py-4 sticky top-0 z-20 flex justify-between items-center shadow-md">
+            <div class="flex items-center gap-2">
+              <i data-lucide="terminal" class="w-5 h-5 text-brand-peach"></i>
+              <div>
+                <h2 class="font-extrabold text-sm uppercase tracking-wide">Панель Управления</h2>
+                <p class="text-[10px] text-brand-cream/80">Официант / Администратор</p>
+              </div>
+            </div>
+            <button onclick="state.screen = 'login'; render();" class="bg-brand-brown hover:bg-brand-peach text-white text-xs font-bold px-3 py-1.5 rounded-xl transition flex items-center gap-1">
+              <i data-lucide="log-out" class="w-3.5 h-3.5"></i> Выйти
+            </button>
+          </header>
+
+          <!-- Табы Новые / Отданные -->
+          ${tabsHtml}
+
+          <!-- Основной контент (Список заказов) -->
+          <main class="flex-1 p-4 space-y-4 overflow-y-auto">
+            ${ordersHtml}
+          </main>
+
+          <!-- Модальное окно счета -->
+          ${billModalHtml}
+        `;
+      }
+
+      // Перезапуск отрисовки иконок Lucide после обновления DOM
+      lucide.createIcons();
+    }
+
+    // Инициализация приложения при загрузке страницы
+    window.onload = function() {
+      initApp();
+    };
+  </script>
+</body>
+</html>
