@@ -85,11 +85,18 @@
         const localOrders = localStorage.getItem('qr_restaurant_orders');
         state.orders = localOrders ? JSON.parse(localOrders) : [];
 
-        // Проверяем наличие параметра стола в URL (?table=15)
+        // Получаем параметры из URL (?table=15 или ?admin=true)
         const urlParams = new URLSearchParams(window.location.search);
         const tableParam = urlParams.get('table');
+        const adminParam = urlParams.get('admin');
 
-        if (tableParam) {
+        // СЦЕНАРИЙ А: Вход сотрудника по QR (?admin=true)
+        if (adminParam === 'true') {
+          state.screen = 'admin_panel';
+          showNotification('Успешный вход по QR-коду сотрудника', 'success');
+        } 
+        // СЦЕНАРИЙ Б: Вход гостя по QR (?table=15)
+        else if (tableParam) {
           const tableNum = parseInt(tableParam, 10);
           if (tableNum >= MIN_TABLE && tableNum <= MAX_TABLE) {
             state.tableNumber = tableNum;
@@ -900,7 +907,7 @@
           }
         }
 
-        // Верстка модального окна счета (для просмотра чека индивидуального заказа в архиве)
+        // Верстка модального окна счета
         const billModalHtml = state.selectedBillOrder ? `
           <div class="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
             <div class="bg-white border-2 border-brand-brown p-6 rounded-2xl w-full max-w-sm shadow-2xl relative">
