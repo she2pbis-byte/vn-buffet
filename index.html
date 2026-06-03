@@ -1,9 +1,10 @@
+```html
 <!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>БУФЕТ В КЗЦ — Онлайн-заказ</title>
+  <title>БУФЕТ В КЗЦ</title>
   
   <!-- Подключение Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -61,6 +62,7 @@
       orders: [], // Список заказов [{id, table, items: [{id, name, price, count}], status: 'new'|'served'|'paid', timestamp, total}]
       adminTab: 'new', // 'new' | 'served' | 'archive'
       selectedBillOrder: null, // Хранение выбранного заказа для отображения чека
+      showConfirmOrderModal: false, // Флаг отображения окна проверки заказа гостем
     };
 
     // --- Константы системы безопасности ---
@@ -105,7 +107,7 @@
           <div class="p-8 text-center flex flex-col justify-center items-center min-h-screen">
             <i data-lucide="alert-triangle" class="w-16 h-16 text-red-500 mb-4"></i>
             <h2 class="text-xl font-bold text-brand-dark mb-2">Ошибка инициализации</h2>
-            <p class="text-brand-brown text-sm mb-6">Убедитесь, что файл <strong>menu.json</strong> лежит в той же папке, что и index.html, и вы открыли страницу через локальный сервер или загружили на GitHub Pages.</p>
+            <p class="text-brand-brown text-sm mb-6">Убедитесь, что файл <strong>menu.json</strong> лежит в той же папке, что и index.html, и вы открыли страницу через локальный сервер или загрузили на GitHub Pages.</p>
             <button onclick="location.reload()" class="bg-brand-peach text-white font-bold py-2 px-6 rounded-xl hover:bg-brand-brown transition">Повторить попытку</button>
           </div>
         `;
@@ -126,11 +128,18 @@
           delete state.cart[itemId];
         }
       }
+      
+      // Если корзина полностью опустела при редактировании в модальном окне, закрываем его
+      if (getCartCount() === 0) {
+        state.showConfirmOrderModal = false;
+      }
+      
       render();
     }
 
     function clearCart() {
       state.cart = {};
+      state.showConfirmOrderModal = false;
       render();
     }
 
@@ -184,6 +193,13 @@
       }
     }
 
+    // Инициировать проверку заказа перед отправкой
+    function checkOrderBeforeSubmit() {
+      if (Object.keys(state.cart).length === 0) return;
+      state.showConfirmOrderModal = true;
+      render();
+    }
+
     // Отправка нового заказа гостем
     function submitOrder() {
       if (Object.keys(state.cart).length === 0) return;
@@ -211,7 +227,8 @@
       state.orders.unshift(newOrder);
       localStorage.setItem('qr_restaurant_orders', JSON.stringify(state.orders));
 
-      // Очищаем корзину и выводим модал успеха
+      // Закрываем окно проверки, очищаем корзину и выводим модал успеха
+      state.showConfirmOrderModal = false;
       state.cart = {};
       showOrderSuccessModal();
     }
@@ -498,7 +515,7 @@
                     onclick="addToCart('${item.id}')" 
                     class="bg-brand-peach hover:bg-brand-brown text-white text-xs font-extrabold px-4 py-2 rounded-full transition active:scale-95 shadow-sm"
                   >
-                    В корзину
+                    Заказать
                   </button>
                 `}
               </div>
@@ -524,15 +541,87 @@
               <button onclick="clearCart()" class="px-3 rounded-xl border border-brand-brown/20 hover:bg-red-50 text-red-500 transition" title="Очистить">
                 <i data-lucide="trash-2" class="w-5 h-5"></i>
               </button>
-              <button onclick="submitOrder()" class="flex-1 bg-brand-peach hover:bg-brand-brown text-white font-bold py-3.5 rounded-xl transition shadow-md active:scale-[0.99] flex items-center justify-center gap-2">
-                <i data-lucide="send" class="w-4 h-4"></i> Отправить заказ
+              <button onclick="checkOrderBeforeSubmit()" class="flex-1 bg-brand-peach hover:bg-brand-brown text-white font-bold py-3.5 rounded-xl transition shadow-md active:scale-[0.99] flex items-center justify-center gap-2">
+                <i data-lucide="eye" class="w-4 h-4"></i> Отправить заказ
               </button>
             </div>
           </div>
         ` : '';
 
+        // Всплывающее интерактивное окно проверки и редактирования заказа перед отправкой
+        let confirmOrderModalHtml = '';
+        if (state.showConfirmOrderModal && cartCount > 0) {
+          const cartItemsHtml = Object.entries(state.cart).map(([itemId, count]) => {
+            const item = findMenuItem(itemId);
+            if (!item) return '';
+            return `
+              <div class="flex justify-between items-center bg-brand-cream/30 p-3 rounded-xl border border-brand-brown/10">
+                <div class="flex-1 pr-2">
+                  <h4 class="text-xs font-bold text-brand-dark">${item.name}</h4>
+                  <span class="text-[10px] text-brand-brown">${item.price} ₽ / шт.</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button onclick="removeFromCart('${item.id}')" class="w-6 h-6 rounded-full bg-white border border-brand-brown/20 flex items-center justify-center text-brand-peach font-extrabold hover:bg-brand-peach/10 transition">-</button>
+                  <span class="font-bold text-xs text-brand-dark w-4 text-center">${count}</span>
+                  <button onclick="addToCart('${item.id}')" class="w-6 h-6 rounded-full bg-white border border-brand-brown/20 flex items-center justify-center text-brand-peach font-extrabold hover:bg-brand-peach/10 transition">+</button>
+                </div>
+                <div class="w-16 text-right font-extrabold text-xs text-brand-dark ml-2">
+                  ${item.price * count} ₽
+                </div>
+              </div>
+            `;
+          }).join('');
+
+          confirmOrderModalHtml = `
+            <div class="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-50 flex items-end justify-center animate-fade-in">
+              <div class="bg-brand-cream border-t-2 border-brand-brown p-6 rounded-t-3xl w-full max-w-md shadow-2xl space-y-4 max-h-[90vh] flex flex-col justify-between">
+                <div>
+                  <div class="flex justify-between items-center border-b border-brand-brown/10 pb-3">
+                    <div class="flex items-center gap-2">
+                      <i data-lucide="shopping-bag" class="text-brand-peach w-5 h-5"></i>
+                      <h3 class="text-md font-bold text-brand-dark uppercase tracking-wide">Ваш заказ (Стол №${state.tableNumber})</h3>
+                    </div>
+                    <button onclick="state.showConfirmOrderModal = false; render();" class="text-brand-brown hover:text-brand-dark">
+                      <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                  </div>
+                  
+                  <p class="text-[10px] text-brand-brown font-semibold my-2">Проверьте состав заказа. Вы можете отредактировать позиции кнопками + и - перед отправкой.</p>
+                  
+                  <!-- Прокручиваемый список позиций в корзине -->
+                  <div class="space-y-2 overflow-y-auto max-h-[40vh] pr-1 no-scrollbar my-2">
+                    ${cartItemsHtml}
+                  </div>
+                </div>
+
+                <div class="space-y-3">
+                  <div class="flex justify-between items-center pt-2 border-t border-brand-brown/10">
+                    <span class="font-extrabold text-xs text-brand-brown uppercase">Итого к отправке:</span>
+                    <span class="text-lg font-black text-brand-peach">${cartTotal} ₽</span>
+                  </div>
+
+                  <div class="grid grid-cols-3 gap-2">
+                    <button 
+                      onclick="state.showConfirmOrderModal = false; render();" 
+                      class="col-span-1 bg-white border border-brand-brown/20 text-brand-brown font-bold text-xs py-3 rounded-xl transition hover:bg-white/80"
+                    >
+                      Назад
+                    </button>
+                    <button 
+                      onclick="submitOrder()" 
+                      class="col-span-2 bg-green-600 hover:bg-green-700 text-white font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-1.5 shadow-md"
+                    >
+                      <i data-lucide="check" class="w-3.5 h-3.5"></i> Всё верно, отправить
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+
         container.innerHTML = `
-          <!-- Верхний колонтитул -->
+          <!-- Upper Navbar -->
           <header class="bg-brand-dark text-brand-cream px-4 py-4 sticky top-0 z-20 flex justify-between items-center shadow-md">
             <div class="flex items-center gap-2">
               <div class="bg-brand-peach rounded-lg p-1">
@@ -568,6 +657,9 @@
 
           <!-- Нижняя часть с корзиной -->
           ${bottomCartHtml}
+
+          <!-- Окно предварительного просмотра перед отправкой -->
+          ${confirmOrderModalHtml}
         `;
       }
 
