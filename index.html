@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Заказ из меню по QR-коду</title>
+  <title>БУФЕТ В КЗЦ — Онлайн-заказ</title>
   
   <!-- Подключение Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -29,16 +29,8 @@
     }
   </script>
 
-  <!-- Стили для скрытия скроллбаров в меню категорий -->
+  <!-- Стили для плавности интерфейса -->
   <style>
-    .no-scrollbar::-webkit-scrollbar {
-      display: none;
-    }
-    .no-scrollbar {
-      -ms-overflow-style: none;
-      scrollbar-width: none;
-    }
-    /* Стили анимации появления */
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
@@ -74,7 +66,7 @@
     // --- Константы системы безопасности ---
     const ADMIN_PASSWORD = "56165616";
     const MIN_TABLE = 1;
-    const MAX_TABLE = 30;
+    const MAX_TABLE = 50; // Увеличено до 50 столов
 
     // --- Загрузка и инициализация данных ---
     async function initApp() {
@@ -113,7 +105,7 @@
           <div class="p-8 text-center flex flex-col justify-center items-center min-h-screen">
             <i data-lucide="alert-triangle" class="w-16 h-16 text-red-500 mb-4"></i>
             <h2 class="text-xl font-bold text-brand-dark mb-2">Ошибка инициализации</h2>
-            <p class="text-brand-brown text-sm mb-6">Убедитесь, что файл <strong>menu.json</strong> лежит в той же папке, что и index.html, и вы открыли страницу через локальный сервер (Live Server) или загрузили на хостинг.</p>
+            <p class="text-brand-brown text-sm mb-6">Убедитесь, что файл <strong>menu.json</strong> лежит в той же папке, что и index.html, и вы открыли страницу через локальный сервер или загрузили на GitHub Pages.</p>
             <button onclick="location.reload()" class="bg-brand-peach text-white font-bold py-2 px-6 rounded-xl hover:bg-brand-brown transition">Повторить попытку</button>
           </div>
         `;
@@ -306,14 +298,14 @@
             <span>${order.total} ₽</span>
           </h3>
           <div class="divider"></div>
-          <p class="center" style="font-size: 12px; margin-top: 20px;">ООО "Вкусный ресторан"<br>Фискальный чек будет выдан после оплаты на кассе.</p>
+          <p class="center" style="font-size: 12px; margin-top: 20px;">БУФЕТ В КЗЦ<br>Фискальный чек будет выдан после оплаты на кассе.</p>
         </body>
         </html>
       `);
       printWindow.document.close();
     }
 
-    // --- Кастомные Уведомления и Модальные Окна ---
+    // --- Уведомления ---
     function showNotification(message, type = 'info') {
       const existingToast = document.getElementById('toast');
       if (existingToast) existingToast.remove();
@@ -373,14 +365,14 @@
       if (state.screen === 'login') {
         container.className = "max-w-md mx-auto bg-brand-cream min-h-screen relative flex flex-col justify-between p-6 shadow-2xl";
         container.innerHTML = `
-          <!-- Логотип/Заголовок -->
           <div class="flex-1 flex flex-col justify-center py-8">
+            <!-- Логотип/Заголовок -->
             <div class="text-center mb-8">
               <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-brand-peach text-white mb-3 shadow-md">
                 <i data-lucide="chef-hat" class="w-8 h-8"></i>
               </div>
-              <h1 class="text-2xl font-extrabold text-brand-dark tracking-tight uppercase">Уютный Ресторан</h1>
-              <p class="text-xs text-brand-brown font-medium mt-1">Экспресс-заказ со стола</p>
+              <h1 class="text-2xl font-extrabold text-brand-dark tracking-tight uppercase">БУФЕТ В КЗЦ</h1>
+              <p class="text-xs text-brand-brown font-medium mt-1">Онлайн-заказ</p>
             </div>
 
             <!-- Блок Гостя -->
@@ -388,13 +380,12 @@
               <h2 class="text-md font-bold text-brand-dark mb-4 flex items-center gap-2">
                 <i data-lucide="user" class="w-4 h-4 text-brand-peach"></i> Я — Гость
               </h2>
-              <form onsubmit="handleGuestLogin(event)">
-                <label class="block text-xs font-semibold text-brand-brown mb-1">Номер стола (от 1 до 30)</label>
+              <form onsubmit="handleGuestLogin(event)" class="space-y-3">
                 <div class="flex gap-2">
                   <input 
                     type="number" 
                     id="tableInput" 
-                    placeholder="Например: 12" 
+                    placeholder="Номер стола" 
                     min="${MIN_TABLE}" 
                     max="${MAX_TABLE}" 
                     required
@@ -412,13 +403,12 @@
               <h2 class="text-md font-bold text-brand-dark mb-4 flex items-center gap-2">
                 <i data-lucide="shield-check" class="w-4 h-4 text-brand-brown"></i> Панель сотрудника
               </h2>
-              <form onsubmit="handleAdminLogin(event)">
-                <label class="block text-xs font-semibold text-brand-brown mb-1">Введите пароль</label>
+              <form onsubmit="handleAdminLogin(event)" class="space-y-3">
                 <div class="flex gap-2">
                   <input 
                     type="password" 
                     id="passwordInput" 
-                    placeholder="Пароль администратора" 
+                    placeholder="Введите пароль" 
                     required
                     class="flex-1 px-4 py-2.5 rounded-xl border border-brand-brown/20 bg-brand-cream/30 focus:outline-none focus:ring-2 focus:ring-brand-peach text-brand-dark"
                   >
@@ -431,7 +421,7 @@
           </div>
 
           <div class="text-center text-xs text-brand-brown/60 pt-4 border-t border-brand-brown/10">
-            &copy; 2026 Уютный Ресторан. Сканируйте QR-код на столе для быстрого доступа.
+            &copy; 2026 БУФЕТ В КЗЦ. Онлайн-заказ по QR-коду со стола.
           </div>
         `;
       }
@@ -445,16 +435,16 @@
         // Поиск активной категории
         const currentCategory = state.menuData.categories.find(c => c.id === state.activeCategoryId) || state.menuData.categories[0];
 
-        // Категории в горизонтальной прокрутке
+        // Категории выводятся в виде компактной адаптивной сетки (Grid) без прокрутки
         const categoryTabsHtml = state.menuData.categories.map(cat => {
           const isActive = cat.id === state.activeCategoryId;
           return `
             <button 
               onclick="state.activeCategoryId = '${cat.id}'; render();" 
-              class="px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+              class="w-full px-2 py-2 rounded-xl text-center text-[11px] leading-tight font-bold transition-all border ${
                 isActive 
-                  ? 'bg-brand-peach text-white shadow-sm' 
-                  : 'bg-white text-brand-brown border border-brand-brown/10 hover:bg-white/80'
+                  ? 'bg-brand-peach text-white border-brand-peach shadow-sm' 
+                  : 'bg-white text-brand-brown border-brand-brown/10 hover:bg-white/80'
               }"
             >
               ${cat.title}
@@ -512,7 +502,7 @@
                 <i data-lucide="trash-2" class="w-5 h-5"></i>
               </button>
               <button onclick="submitOrder()" class="flex-1 bg-brand-peach hover:bg-brand-brown text-white font-bold py-3.5 rounded-xl transition shadow-md active:scale-[0.99] flex items-center justify-center gap-2">
-                <i data-lucide="send" class="w-4 h-4"></i> Отправить заказ кухне
+                <i data-lucide="send" class="w-4 h-4"></i> Отправить заказ
               </button>
             </div>
           </div>
@@ -526,8 +516,8 @@
                 <i data-lucide="cup-soda" class="w-5 h-5 text-white"></i>
               </div>
               <div>
-                <h2 class="font-extrabold text-sm uppercase tracking-wide">Уютное Меню</h2>
-                <p class="text-[10px] text-brand-cream/80">Категория: ${currentCategory.title}</p>
+                <h2 class="font-extrabold text-sm uppercase tracking-wide">БУФЕТ В КЗЦ</h2>
+                <p class="text-[10px] text-brand-cream/80">Раздел: ${currentCategory.title}</p>
               </div>
             </div>
             <div class="flex items-center gap-2">
@@ -541,9 +531,11 @@
             </div>
           </header>
 
-          <!-- Табы категорий -->
-          <div class="sticky top-[58px] z-10 bg-brand-cream/90 backdrop-blur-md border-b border-brand-brown/10 py-3 px-4 flex gap-2 overflow-x-auto no-scrollbar">
-            ${categoryTabsHtml}
+          <!-- Плитка категорий меню (все разделы видны без скролла на одном экране) -->
+          <div class="sticky top-[58px] z-10 bg-brand-cream/95 backdrop-blur-md border-b border-brand-brown/10 p-3">
+            <div class="grid grid-cols-3 gap-1.5">
+              ${categoryTabsHtml}
+            </div>
           </div>
 
           <!-- Список блюд -->
@@ -600,7 +592,7 @@
                 <i data-lucide="inbox" class="w-8 h-8 text-brand-brown/40"></i>
               </div>
               <h3 class="text-sm font-bold text-brand-dark">Заказов пока нет</h3>
-              <p class="text-xs text-brand-brown/80 mt-1">Как только гость отправит заказ, он появится здесь в реальном времени.</p>
+              <p class="text-xs text-brand-brown/80 mt-1">Как только гость отправит заказ, он появится здесь.</p>
             </div>
           `;
         } else {
@@ -637,14 +629,14 @@
                   ${order.status === 'new' ? `
                     <button 
                       onclick="updateOrderStatus('${order.id}', 'served')" 
-                      class="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition"
+                      class="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition"
                     >
                       <i data-lucide="check" class="w-3.5 h-3.5"></i> Заказ отдан
                     </button>
                   ` : `
                     <button 
                       onclick="openBill('${order.id}')" 
-                      class="flex-1 bg-brand-peach hover:bg-brand-brown text-white text-xs font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition"
+                      class="flex-1 bg-brand-peach hover:bg-brand-brown text-white text-xs font-bold py-2.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition"
                     >
                       <i data-lucide="receipt" class="w-3.5 h-3.5"></i> Сформировать счет
                     </button>
@@ -717,7 +709,7 @@
             <div class="flex items-center gap-2">
               <i data-lucide="terminal" class="w-5 h-5 text-brand-peach"></i>
               <div>
-                <h2 class="font-extrabold text-sm uppercase tracking-wide">Панель Управления</h2>
+                <h2 class="font-extrabold text-sm uppercase tracking-wide">БУФЕТ В КЗЦ</h2>
                 <p class="text-[10px] text-brand-cream/80">Официант / Администратор</p>
               </div>
             </div>
