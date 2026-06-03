@@ -281,6 +281,7 @@
       }
     }
 
+    // Закрытие чека
     function closeBillModal() {
       state.selectedBillOrder = null;
       render();
@@ -474,13 +475,13 @@
         // Поиск активной категории
         const currentCategory = state.menuData.categories.find(c => c.id === state.activeCategoryId) || state.menuData.categories[0];
 
-        // Категории выводятся в виде компактной адаптивной сетки (Grid) без прокрутки
+        // Категории выводятся в виде симметричной сетки (2 колонки) с фиксированной высотой (высота взята по максимальной плашке «Алкогольные напитки»)
         const categoryTabsHtml = state.menuData.categories.map(cat => {
           const isActive = cat.id === state.activeCategoryId;
           return `
             <button 
               onclick="state.activeCategoryId = '${cat.id}'; render();" 
-              class="w-full px-1 py-2 rounded-xl text-center text-[10px] leading-tight font-extrabold transition-all border ${
+              class="w-full h-11 px-2 flex items-center justify-center rounded-xl text-center text-[11px] leading-tight font-extrabold transition-all border ${
                 isActive 
                   ? 'bg-brand-peach text-white border-brand-peach shadow-sm' 
                   : 'bg-white text-brand-brown border-brand-brown/10 hover:bg-white/80'
@@ -642,9 +643,9 @@
             </div>
           </header>
 
-          <!-- Плитка категорий меню (все разделы видны без скролла) -->
+          <!-- Плитка категорий меню (все 6 плашек одного фиксированного размера по сетке) -->
           <div class="sticky top-[58px] z-10 bg-brand-cream/95 backdrop-blur-md border-b border-brand-brown/10 p-3">
-            <div class="grid grid-cols-3 gap-1.5">
+            <div class="grid grid-cols-2 gap-2">
               ${categoryTabsHtml}
             </div>
           </div>
