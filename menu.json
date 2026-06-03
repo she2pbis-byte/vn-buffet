@@ -1,0 +1,61 @@
+{
+"categories": [
+{
+"id": "alcohol",
+"title": "Алкогольные напитки",
+"items": [
+{ "id": "alc_1", "name": "Вино красное сухое", "price": 350, "description": "Каберне Совиньон, 150 мл", "available": true },
+{ "id": "alc_2", "name": "Вино белое сухое", "price": 350, "description": "Шардоне, 150 мл", "available": true },
+{ "id": "alc_3", "name": "Пиво крафтовое светлое", "price": 280, "description": "Фильтрованное, 500 мл", "available": true },
+{ "id": "alc_4", "name": "Сидр яблочный", "price": 260, "description": "Полусладкий, 400 мл", "available": true }
+]
+},
+{
+"id": "non-alcohol",
+"title": "Безалкогольные напитки",
+"items": [
+{ "id": "nalc_1", "name": "Морс брусничный", "price": 120, "description": "Домашний рецепт, 250 мл", "available": true },
+{ "id": "nalc_2", "name": "Лимонад классический", "price": 180, "description": "Лимон, мята, содовая, 300 мл", "available": true },
+{ "id": "nalc_3", "name": "Кока-Кола", "price": 150, "description": "Стеклянная бутылка, 330 мл", "available": true },
+{ "id": "nalc_4", "name": "Вода без газа", "price": 100, "description": "С лимоном, 500 мл", "available": true }
+]
+},
+{
+"id": "hot-drinks",
+"title": "Горячие напитки",
+"items": [
+{ "id": "hot_1", "name": "Эспрессо", "price": 100, "description": "Классический крепкий кофе, 30 мл", "available": true },
+{ "id": "hot_2", "name": "Капучино", "price": 160, "description": "С нежной молочной пенкой, 200 мл", "available": true },
+{ "id": "hot_3", "name": "Флэт Уайт", "price": 190, "description": "На двойном эспрессо, 250 мл", "available": true },
+{ "id": "hot_4", "name": "Чай Таежный сбор", "price": 220, "description": "Травяной ароматный чай, 500 мл", "available": true }
+]
+},
+{
+"id": "snacks",
+"title": "Закуски",
+"items": [
+{ "id": "snack_1", "name": "Гренки ржаные с чесноком", "price": 190, "description": "С соусом Тартар, 150 г", "available": true },
+{ "id": "snack_2", "name": "Сырные палочки фри", "price": 250, "description": "С клюквенным соусом, 6 шт.", "available": true },
+{ "id": "snack_3", "name": "Картофель фри", "price": 160, "description": "Сырный соус в комплекте, 120 г", "available": true }
+]
+},
+{
+"id": "bakery",
+"title": "Выпечка",
+"items": [
+{ "id": "bake_1", "name": "Круассан классический", "price": 130, "description": "Свежевыпеченный на сливочном масле", "available": true },
+{ "id": "bake_2", "name": "Улитка с корицей", "price": 110, "description": "С сахарной помадкой", "available": true },
+{ "id": "bake_3", "name": "Киш с курицей и грибами", "price": 180, "description": "Сытный открытый пирог, 150 г", "available": true }
+]
+},
+{
+"id": "desserts",
+"title": "Десерт",
+"items": [
+{ "id": "des_1", "name": "Чизкейк Нью-Йорк", "price": 240, "description": "Классический сливочный десерт", "available": true },
+{ "id": "des_2", "name": "Тирамису", "price": 260, "description": "С маскарпоне и кофейной пропиткой", "available": true },
+{ "id": "des_3", "name": "Шоколадный фондан", "price": 220, "description": "С жидким центром и шариком мороженого", "available": true }
+]
+}
+]
+}
