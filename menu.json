@@ -19,20 +19,22 @@
 "id": "non-alcohol",
 "title": "Безалкогольные напитки",
 "items": [
-{ "id": "nalc_1", "name": "Морс брусничный", "price": 120, "description": "Домашний рецепт, 250 мл", "available": true },
-{ "id": "nalc_2", "name": "Лимонад классический", "price": 180, "description": "Лимон, мята, содовая, 300 мл", "available": true },
-{ "id": "nalc_3", "name": "Кока-Кола", "price": 150, "description": "Стеклянная бутылка, 330 мл", "available": true },
-{ "id": "nalc_4", "name": "Вода без газа", "price": 100, "description": "С лимоном, 500 мл", "available": true }
+{ "id": "nalc_1", "name": "Вода Хрустальная", "price": 120, "description": "ПЭТ, 500 мл", "available": true },
+{ "id": "nalc_2", "name": "Лимонад Доьрый КОЛА", "price": 180, "description": "ПЭТ, 500 мл", "available": true },
+{ "id": "nalc_3", "name": "Лимонад Добрый ФАНТА", "price": 180, "description": "ПЭТ, 500 мл", "available": true },
+{ "id": "nalc_4", "name": "Лимонад Добрый СПРАЙТ", "price": 180, "description": "ПЭТ, 500 мл", "available": true },
+{ "id": "nalc_5", "name": "Сок Яблочный", "price": 70, "description": "200 мл", "available": true }
 ]
 },
 {
 "id": "hot-drinks",
 "title": "Горячие напитки",
 "items": [
-{ "id": "hot_1", "name": "Эспрессо", "price": 100, "description": "Классический крепкий кофе, 30 мл", "available": true },
-{ "id": "hot_2", "name": "Капучино", "price": 160, "description": "С нежной молочной пенкой, 200 мл", "available": true },
-{ "id": "hot_3", "name": "Флэт Уайт", "price": 190, "description": "На двойном эспрессо, 250 мл", "available": true },
-{ "id": "hot_4", "name": "Чай Таежный сбор", "price": 220, "description": "Травяной ароматный чай, 500 мл", "available": true }
+{ "id": "hot_1", "name": "Американо", "price": 130, "description": "150 мл", "available": true },
+{ "id": "hot_2", "name": "Капучино", "price": 220, "description": "150 мл", "available": true },
+{ "id": "hot_3", "name": "Эспрессо", "price": 130, "description": "30 мл", "available": true },
+{ "id": "hot_4", "name": "Чай черный", "price": 50, "description": "Пакетированный", "available": true },
+{ "id": "hot_5", "name": "Чай зеленый", "price": 50, "description": "Пакетированный", "available": true }
 ]
 },
 {
@@ -48,9 +50,10 @@
 "id": "bakery",
 "title": "Выпечка",
 "items": [
-{ "id": "bake_1", "name": "Круассан классический", "price": 130, "description": "Свежевыпеченный на сливочном масле", "available": true },
-{ "id": "bake_2", "name": "Улитка с корицей", "price": 110, "description": "С сахарной помадкой", "available": true },
-{ "id": "bake_3", "name": "Киш с курицей и грибами", "price": 180, "description": "Сытный открытый пирог, 150 г", "available": true }
+{ "id": "bake_1", "name": "Пирожок с мясом", "price": 80, "description": "40 гр", "available": true },
+{ "id": "bake_2", "name": "Пирожок с сомом и щукой", "price": 110, "description": "40 гр", "available": true },
+{ "id": "bake_3", "name": "Пирожок ржаной с грибами", "price": 80, "description": "40 гр", "available": true },
+{ "id": "bake_4", "name": "Пирожок с капустой и яйцом", "price": 60, "description": "40 гр", "available": true },
 ]
 },
 {
