@@ -5,13 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>БУФЕТ В КЗЦ</title>
   
-  <!-- Подключение Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- Иконки Lucide для наглядного UI -->
   <script src="https://unpkg.com/lucide@latest"></script>
   
-  <!-- Конфигурация кастомных цветов из предоставленной палитры -->
   <script>
     tailwind.config = {
       theme: {
@@ -29,7 +26,6 @@
     }
   </script>
 
-  <!-- Стили для плавности интерфейса -->
   <style>
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(10px); }
@@ -43,14 +39,12 @@
 <body class="bg-brand-cream text-brand-dark font-sans min-h-screen selection:bg-brand-peach selection:text-white">
 
   <div id="app" class="max-w-md mx-auto bg-brand-cream min-h-screen relative flex flex-col shadow-2xl">
-    <!-- Приложение монтируется динамически через JS -->
     <div id="loader" class="flex flex-col items-center justify-center flex-1 py-20">
       <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-peach"></div>
       <p class="mt-4 text-brand-brown font-medium">Подключение к системе заказов...</p>
     </div>
   </div>
 
-  <!-- Подключение Firebase через официальные CDN-модули (v11.6.1) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { 
@@ -73,21 +67,20 @@
     } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     // --- Конфигурация Firebase ---
-    // Среда выполнения автоматически подставит свои ключи, если они доступны глобально.
-    // Если вы запускаете это на своем GitHub Pages или локально — вставьте сюда данные из консоли Firebase.
+    // Ваши персональные ключи успешно интегрированы в сборку проекта vn-buffet
     const firebaseConfig = typeof __firebase_config !== 'undefined' 
       ? JSON.parse(__firebase_config) 
       : {
-          apiKey: "",
-          authDomain: "",
-          projectId: "",
-          storageBucket: "",
-          messagingSenderId: "",
-          appId: ""
+          apiKey: "AIzaSyBG_1ZBE4kd_6cy79fWlycPnE8lsX5p42s",
+          authDomain: "vn-buffet.firebaseapp.com",
+          projectId: "vn-buffet",
+          storageBucket: "vn-buffet.firebasestorage.app",
+          messagingSenderId: "796549505290",
+          appId: "1:796549505290:web:5cd49810ce9a2235649af3"
         };
 
     // Определение уникального ID приложения для изоляции коллекции в Firestore
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'bufet-kzc-app';
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'vn-buffet-app';
 
     // Инициализация сервисов Firebase
     const app = initializeApp(firebaseConfig);
@@ -171,14 +164,11 @@
 
         if (adminParam === 'true') {
           state.screen = 'admin_panel';
-          showNotification('Успешный вход по QR-коду сотрудника', 'success');
         } else if (tableParam) {
           const tableNum = parseInt(tableParam, 10);
           if (tableNum >= MIN_TABLE && tableNum <= MAX_TABLE) {
             state.tableNumber = tableNum;
             state.screen = 'guest_menu';
-          } else {
-            showNotification(`Стол №${tableParam} не существует. Допустимые столы: ${MIN_TABLE}-${MAX_TABLE}`, 'error');
           }
         }
 
@@ -219,7 +209,6 @@
         render();
       }, (error) => {
         console.error("Ошибка при чтении Firestore:", error);
-        showNotification("Ошибка получения данных из сети", "error");
       });
     }
 
@@ -227,6 +216,22 @@
     function addToCart(itemId) {
       state.cart[itemId] = (state.cart[itemId] || 0) + 1;
       render();
+    }
+
+    // Отслеживание всплывающих уведомлений на UI
+    function showNotification(message, type = 'info') {
+      const existingToast = document.getElementById('system-toast');
+      if (existingToast) existingToast.remove();
+
+      const toast = document.createElement('div');
+      toast.id = 'system-toast';
+      toast.className = `fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl text-white text-xs font-bold shadow-lg animate-fade-in transition duration-300 ${
+        type === 'success' ? 'bg-green-600' : type === 'error' ? 'bg-red-600' : 'bg-brand-brown'
+      }`;
+      toast.innerText = message;
+      document.body.appendChild(toast);
+
+      setTimeout(() => { if (toast) toast.remove(); }, 3500);
     }
 
     function removeFromCart(itemId) {
@@ -343,7 +348,9 @@
         
         state.showConfirmOrderModal = false;
         state.cart = {};
-        showOrderSuccessModal();
+        
+        showNotification("Заказ успешно отправлен на кухню!", "success");
+        render();
       } catch (error) {
         console.error("Ошибка сохранения заказа в Firestore:", error);
         showNotification("Не удалось отправить заказ. Проверьте интернет.", "error");
@@ -510,7 +517,6 @@
         container.className = "max-w-md mx-auto bg-brand-cream min-h-screen relative flex flex-col justify-between p-6 shadow-2xl animate-fade-in";
         container.innerHTML = `
           <div class="flex-1 flex flex-col justify-center py-4">
-            <!-- Логотип/Заголовок -->
             <div class="text-center mb-8">
               <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-brand-peach text-white mb-3 shadow-md">
                 <i data-lucide="chef-hat" class="w-8 h-8"></i>
@@ -519,7 +525,6 @@
               <p class="text-xs text-brand-brown font-semibold mt-1">Онлайн-заказ</p>
             </div>
 
-            <!-- Блок Гостя -->
             <div class="bg-white border border-brand-brown/10 p-6 rounded-2xl shadow-sm mb-6">
               <h2 class="text-md font-bold text-brand-dark mb-4 flex items-center gap-2 border-b border-brand-cream pb-2">
                 <i data-lucide="user" class="w-4 h-4 text-brand-peach"></i> Я — Гость
@@ -542,7 +547,6 @@
               </form>
             </div>
 
-            <!-- Блок Админа -->
             <div class="bg-white border border-brand-brown/10 p-6 rounded-2xl shadow-sm">
               <h2 class="text-md font-bold text-brand-dark mb-4 flex items-center gap-2 border-b border-brand-cream pb-2">
                 <i data-lucide="shield-check" class="w-4 h-4 text-brand-brown"></i> Панель сотрудника
@@ -579,7 +583,7 @@
         // Поиск активной категории
         const currentCategory = state.menuData.categories.find(c => c.id === state.activeCategoryId) || state.menuData.categories[0];
 
-        // Категории выводятся в виде симметричной сетки (2 колонки) с фиксированной высотой (высота взята по максимальной плашке «Алкогольные напитки»)
+        // Категории выводятся в виде симметричной сетки (2 колонки)
         const categoryTabsHtml = state.menuData.categories.map(cat => {
           const isActive = cat.id === state.activeCategoryId;
           return `
@@ -679,7 +683,6 @@
           confirmOrderModalHtml = `
             <div class="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-50 flex items-end justify-center animate-fade-in">
               <div class="bg-brand-cream border-t-2 border-brand-brown p-6 rounded-t-3xl w-full max-w-md shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
-                <!-- Заголовок -->
                 <div class="flex justify-between items-center border-b border-brand-brown/10 pb-3 flex-shrink-0">
                   <div class="flex items-center gap-2">
                     <i data-lucide="shopping-bag" class="text-brand-peach w-5 h-5"></i>
@@ -692,12 +695,10 @@
                 
                 <p class="text-[10px] text-brand-brown font-semibold flex-shrink-0">Проверьте состав заказа. Вы можете отредактировать позиции перед отправкой.</p>
                 
-                <!-- Прокручиваемый список позиций в корзине -->
-                <div class="space-y-2 overflow-y-auto max-h-[32vh] pr-1 no-scrollbar flex-1">
+                <div class="space-y-2 overflow-y-auto max-h-[32vh] pr-1 flex-1">
                   ${cartItemsHtml}
                 </div>
 
-                <!-- Подвал модального окна -->
                 <div class="space-y-3 pt-3 border-t border-brand-brown/10 flex-shrink-0">
                   <div class="flex justify-between items-center">
                     <span class="font-extrabold text-xs text-brand-brown uppercase">Итого к отправке:</span>
@@ -725,7 +726,6 @@
         }
 
         container.innerHTML = `
-          <!-- Upper Navbar -->
           <header class="bg-brand-dark text-brand-cream px-4 py-4 sticky top-0 z-20 flex justify-between items-center shadow-md">
             <div class="flex items-center gap-2">
               <div class="bg-brand-peach rounded-lg p-1">
@@ -741,28 +741,24 @@
                 <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
                 Стол №${state.tableNumber}
               </div>
-              <button onclick="state.screen = 'login'; render();" class="text-brand-cream/80 hover:text-white p-1" title="Сменить стол/Выйти">
+              <button onclick="state.screen = 'login'; render();" class="text-brand-cream/80 hover:text-white p-1" title="Выйти">
                 <i data-lucide="log-out" class="w-4 h-4"></i>
               </button>
             </div>
           </header>
 
-          <!-- Плитка категорий меню -->
           <div class="sticky top-[58px] z-10 bg-brand-cream/95 backdrop-blur-md border-b border-brand-brown/10 p-3">
             <div class="grid grid-cols-2 gap-2">
               ${categoryTabsHtml}
             </div>
           </div>
 
-          <!-- Список блюд -->
           <main class="flex-1 p-4 space-y-3">
             ${itemsHtml}
           </main>
 
-          <!-- Нижняя часть с корзиной -->
           ${bottomCartHtml}
 
-          <!-- Окно предварительного просмотра перед отправкой -->
           ${confirmOrderModalHtml}
         `;
       }
@@ -773,7 +769,6 @@
       else if (state.screen === 'admin_panel') {
         container.className = "max-w-md mx-auto bg-brand-cream min-h-screen relative flex flex-col justify-between shadow-2xl animate-fade-in";
 
-        // Фильтрация заказов по вкладкам
         const newOrders = state.orders.filter(o => o.status === 'new');
         const servedOrders = state.orders.filter(o => o.status === 'served');
         const paidOrders = state.orders.filter(o => o.status === 'paid');
@@ -815,7 +810,6 @@
 
         let ordersHtml = '';
 
-        // Вкладка 1: НОВЫЕ ЗАКАЗЫ
         if (state.adminTab === 'new') {
           if (newOrders.length === 0) {
             ordersHtml = `
@@ -871,7 +865,6 @@
           }
         }
 
-        // Вкладка 2: НА СТОЛАХ (НЕОПЛАЧЕННЫЕ СТОЛЫ С ГРУППИРОВКОЙ)
         else if (state.adminTab === 'served') {
           if (servedOrders.length === 0) {
             ordersHtml = `
@@ -884,7 +877,6 @@
               </div>
             `;
           } else {
-            // Группировка неоплаченных заказов на столах по номерам столов
             const groupedByTable = {};
             servedOrders.forEach(order => {
               if (!groupedByTable[order.table]) {
@@ -945,7 +937,6 @@
           }
         }
 
-        // Вкладка 3: АРХИВ ОПЛАЧЕННЫХ ЗАКАЗОВ
         else if (state.adminTab === 'archive') {
           if (paidOrders.length === 0) {
             ordersHtml = `
@@ -1007,7 +998,6 @@
           }
         }
 
-        // Верстка модального окна счета
         const billModalHtml = state.selectedBillOrder ? `
           <div class="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
             <div class="bg-white border-2 border-brand-brown p-6 rounded-2xl w-full max-w-sm shadow-2xl relative">
@@ -1021,7 +1011,7 @@
                 <p class="text-xs text-brand-brown font-bold text-sm">Стол №${state.selectedBillOrder.table}</p>
               </div>
 
-              <div class="py-4 space-y-2 border-b border-dashed border-brand-brown/30 max-h-48 overflow-y-auto no-scrollbar">
+              <div class="py-4 space-y-2 border-b border-dashed border-brand-brown/30 max-h-48 overflow-y-auto">
                 ${state.selectedBillOrder.items.map(item => `
                   <div class="flex justify-between text-xs">
                     <span class="text-brand-dark">${item.name} <strong class="text-brand-brown">x${item.count}</strong></span>
@@ -1054,7 +1044,6 @@
         ` : '';
 
         container.innerHTML = `
-          <!-- Шапка админки -->
           <header class="bg-brand-dark text-brand-cream px-4 py-4 sticky top-0 z-20 flex justify-between items-center shadow-md">
             <div class="flex items-center gap-2">
               <i data-lucide="terminal" class="w-5 h-5 text-brand-peach"></i>
@@ -1068,24 +1057,19 @@
             </button>
           </header>
 
-          <!-- Табы Новые / На столах / Архив -->
           ${tabsHtml}
 
-          <!-- Основной контент (Список заказов) -->
           <main class="flex-1 p-4 space-y-4 overflow-y-auto">
             ${ordersHtml}
           </main>
 
-          <!-- Модальное окно счета -->
           ${billModalHtml}
         `;
       }
 
-      // Перезапуск отрисовки иконок Lucide после обновления DOM
       lucide.createIcons();
     }
 
-    // Инициализация приложения при загрузке страницы
     window.onload = function() {
       initApp();
     };
