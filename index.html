@@ -46,11 +46,54 @@
     <!-- Приложение монтируется динамически через JS -->
     <div id="loader" class="flex flex-col items-center justify-center flex-1 py-20">
       <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-peach"></div>
-      <p class="mt-4 text-brand-brown font-medium">Загрузка меню...</p>
+      <p class="mt-4 text-brand-brown font-medium">Подключение к системе заказов...</p>
     </div>
   </div>
 
-  <script>
+  <!-- Подключение Firebase через официальные CDN-модули (v11.6.1) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { 
+      getAuth, 
+      signInWithCustomToken, 
+      signInAnonymously, 
+      onAuthStateChanged 
+    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { 
+      getFirestore, 
+      collection, 
+      doc, 
+      setDoc, 
+      getDoc, 
+      addDoc, 
+      updateDoc, 
+      deleteDoc, 
+      onSnapshot, 
+      query 
+    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // --- Конфигурация Firebase ---
+    // Среда выполнения автоматически подставит свои ключи, если они доступны глобально.
+    // Если вы запускаете это на своем GitHub Pages или локально — вставьте сюда данные из консоли Firebase.
+    const firebaseConfig = typeof __firebase_config !== 'undefined' 
+      ? JSON.parse(__firebase_config) 
+      : {
+          apiKey: "",
+          authDomain: "",
+          projectId: "",
+          storageBucket: "",
+          messagingSenderId: "",
+          appId: ""
+        };
+
+    // Определение уникального ID приложения для изоляции коллекции в Firestore
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'bufet-kzc-app';
+
+    // Инициализация сервисов Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
     // --- Состояние приложения ---
     let state = {
       screen: 'login', // 'login', 'guest_menu', 'admin_panel'
@@ -58,21 +101,42 @@
       menuData: null,
       activeCategoryId: '',
       cart: {}, // Храним { itemId: quantity }
-      orders: [], // Список заказов [{id, table, items: [{id, name, price, count}], status: 'new'|'served'|'paid', timestamp, total}]
+      orders: [], // Real-time список заказов из Firestore
       adminTab: 'new', // 'new' | 'served' | 'archive'
-      selectedBillOrder: null, // Хранение выбранного заказа для отображения чека
-      showConfirmOrderModal: false, // Флаг отображения окна проверки заказа гостем
+      selectedBillOrder: null, // Выбранный заказ для чека
+      showConfirmOrderModal: false, // Окно проверки корзины
+      user: null, // Авторизованный в Firebase пользователь
     };
 
-    // --- Константы системы безопасности ---
+    // --- Системные константы ---
     const ADMIN_PASSWORD = "56165616";
     const MIN_TABLE = 1;
-    const MAX_TABLE = 50; // До 50 столов
+    const MAX_TABLE = 50; 
+
+    // Ссылка на коллекцию заказов по правилу безопасных путей (RULE 1)
+    const ordersCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'orders');
+
+    // Экспонируем функции в глобальную область видимости, чтобы вызывать их из onclick в HTML
+    window.addToCart = addToCart;
+    window.removeFromCart = removeFromCart;
+    window.clearCart = clearCart;
+    window.handleGuestLogin = handleGuestLogin;
+    window.handleAdminLogin = handleAdminLogin;
+    window.checkOrderBeforeSubmit = checkOrderBeforeSubmit;
+    window.submitOrder = submitOrder;
+    window.updateOrderStatus = updateOrderStatus;
+    window.payAllOrdersForTable = payAllOrdersForTable;
+    window.deleteOrder = deleteOrder;
+    window.openBill = openBill;
+    window.closeBillModal = closeBillModal;
+    window.printBill = printBill;
+    window.changeCategory = changeCategory;
+    window.closeConfirmOrderModal = closeConfirmOrderModal;
 
     // --- Загрузка и инициализация данных ---
     async function initApp() {
       try {
-        // Загрузка меню из файла menu.json
+        // 1. Загрузка файла меню menu.json
         const response = await fetch('menu.json');
         if (!response.ok) throw new Error('Не удалось загрузить menu.json');
         state.menuData = await response.json();
@@ -81,22 +145,34 @@
           state.activeCategoryId = state.menuData.categories[0].id;
         }
 
-        // Загрузка существующих заказов из локального хранилища (имитация БД)
-        const localOrders = localStorage.getItem('qr_restaurant_orders');
-        state.orders = localOrders ? JSON.parse(localOrders) : [];
+        // 2. Авторизация в Firebase перед любыми запросами (RULE 3)
+        const initAuth = async () => {
+          if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+            await signInWithCustomToken(auth, __initial_auth_token);
+          } else {
+            await signInAnonymously(auth);
+          }
+        };
+        await initAuth();
 
-        // Получаем параметры из URL (?table=15 или ?admin=true)
+        // 3. Отслеживание состояния авторизации
+        onAuthStateChanged(auth, (firebaseUser) => {
+          state.user = firebaseUser;
+          if (firebaseUser) {
+            // Подписываемся на заказы только после успешной авторизации
+            subscribeToOrders();
+          }
+        });
+
+        // 4. Проверяем наличие параметров стола или админа в URL (?table=15 или ?admin=true)
         const urlParams = new URLSearchParams(window.location.search);
         const tableParam = urlParams.get('table');
         const adminParam = urlParams.get('admin');
 
-        // СЦЕНАРИЙ А: Вход сотрудника по QR (?admin=true)
         if (adminParam === 'true') {
           state.screen = 'admin_panel';
           showNotification('Успешный вход по QR-коду сотрудника', 'success');
-        } 
-        // СЦЕНАРИЙ Б: Вход гостя по QR (?table=15)
-        else if (tableParam) {
+        } else if (tableParam) {
           const tableNum = parseInt(tableParam, 10);
           if (tableNum >= MIN_TABLE && tableNum <= MAX_TABLE) {
             state.tableNumber = tableNum;
@@ -112,13 +188,39 @@
         document.getElementById('app').innerHTML = `
           <div class="p-8 text-center flex flex-col justify-center items-center min-h-screen">
             <i data-lucide="alert-triangle" class="w-16 h-16 text-red-500 mb-4"></i>
-            <h2 class="text-xl font-bold text-brand-dark mb-2">Ошибка инициализации</h2>
-            <p class="text-brand-brown text-sm mb-6">Убедитесь, что файл <strong>menu.json</strong> лежит в той же папке, что и index.html, и вы открыли страницу через локальный сервер или загрузили на GitHub Pages.</p>
+            <h2 class="text-xl font-bold text-brand-dark mb-2">Ошибка подключения</h2>
+            <p class="text-brand-brown text-sm mb-6">Убедитесь, что файл <strong>menu.json</strong> лежит в той же папке, что и index.html, а также проверьте настройки подключения к Firebase в коде.</p>
             <button onclick="location.reload()" class="bg-brand-peach text-white font-bold py-2 px-6 rounded-xl hover:bg-brand-brown transition">Повторить попытку</button>
           </div>
         `;
         lucide.createIcons();
       }
+    }
+
+    // --- Real-time подписка на заказы из Firestore (RULE 2 - Без сложных сортировок в query) ---
+    function subscribeToOrders() {
+      if (!state.user) return;
+
+      // Получаем все заказы из Firestore. Сортировку по дате сделаем на клиенте в памяти
+      const q = query(ordersCollectionRef);
+
+      onSnapshot(q, (snapshot) => {
+        const fetchedOrders = [];
+        snapshot.forEach((doc) => {
+          fetchedOrders.push({ id: doc.id, ...doc.data() });
+        });
+
+        // Сортируем полученные заказы на клиенте по времени (сначала новые)
+        fetchedOrders.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+        state.orders = fetchedOrders;
+        
+        // Перерисовываем интерфейс только если мы на экране админа или открыты модалки
+        render();
+      }, (error) => {
+        console.error("Ошибка при чтении Firestore:", error);
+        showNotification("Ошибка получения данных из сети", "error");
+      });
     }
 
     // --- Хелперы работы с корзиной ---
@@ -134,12 +236,9 @@
           delete state.cart[itemId];
         }
       }
-      
-      // Если корзина полностью опустела при редактировании в модальном окне, закрываем его
       if (getCartCount() === 0) {
         state.showConfirmOrderModal = false;
       }
-      
       render();
     }
 
@@ -149,7 +248,6 @@
       render();
     }
 
-    // Поиск товара в меню по ID
     function findMenuItem(itemId) {
       for (const category of state.menuData.categories) {
         const item = category.items.find(i => i.id === itemId);
@@ -158,7 +256,6 @@
       return null;
     }
 
-    // Подсчет общей стоимости корзины
     function getCartTotal() {
       return Object.entries(state.cart).reduce((total, [itemId, count]) => {
         const item = findMenuItem(itemId);
@@ -166,9 +263,18 @@
       }, 0);
     }
 
-    // Подсчет общего количества товаров в корзине
     function getCartCount() {
       return Object.values(state.cart).reduce((a, b) => a + b, 0);
+    }
+
+    function changeCategory(catId) {
+      state.activeCategoryId = catId;
+      render();
+    }
+
+    function closeConfirmOrderModal() {
+      state.showConfirmOrderModal = false;
+      render();
     }
 
     // --- Обработчики событий ---
@@ -186,7 +292,6 @@
       }
     }
 
-    // Вход сотрудника
     function handleAdminLogin(event) {
       event.preventDefault();
       const passInput = document.getElementById('passwordInput').value;
@@ -199,16 +304,19 @@
       }
     }
 
-    // Инициировать проверку заказа перед отправкой
     function checkOrderBeforeSubmit() {
       if (Object.keys(state.cart).length === 0) return;
       state.showConfirmOrderModal = true;
       render();
     }
 
-    // Отправка нового заказа гостем
-    function submitOrder() {
+    // Отправка нового заказа гостем в Firebase Firestore
+    async function submitOrder() {
       if (Object.keys(state.cart).length === 0) return;
+      if (!state.user) {
+        showNotification("Ошибка авторизации. Попробуйте еще раз.", "error");
+        return;
+      }
 
       const orderItems = Object.entries(state.cart).map(([itemId, count]) => {
         const item = findMenuItem(itemId);
@@ -220,8 +328,8 @@
         };
       });
 
+      const orderId = 'ord_' + Date.now();
       const newOrder = {
-        id: 'ord_' + Date.now(),
         table: state.tableNumber,
         items: orderItems,
         status: 'new',
@@ -229,41 +337,43 @@
         total: getCartTotal()
       };
 
-      // Добавляем заказ в начало списка
-      state.orders.unshift(newOrder);
-      localStorage.setItem('qr_restaurant_orders', JSON.stringify(state.orders));
-
-      // Закрываем окно проверки, очищаем корзину и выводим модал успеха
-      state.showConfirmOrderModal = false;
-      state.cart = {};
-      showOrderSuccessModal();
+      try {
+        // Сохраняем в коллекцию по строгому пути
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId), newOrder);
+        
+        state.showConfirmOrderModal = false;
+        state.cart = {};
+        showOrderSuccessModal();
+      } catch (error) {
+        console.error("Ошибка сохранения заказа в Firestore:", error);
+        showNotification("Не удалось отправить заказ. Проверьте интернет.", "error");
+      }
     }
 
-    // Обновление статуса единичного заказа
-    function updateOrderStatus(orderId, newStatus) {
-      state.orders = state.orders.map(order => {
-        if (order.id === orderId) {
-          return { ...order, status: newStatus };
-        }
-        return order;
-      });
-      localStorage.setItem('qr_restaurant_orders', JSON.stringify(state.orders));
-      render();
-      
-      let message = 'Статус обновлен';
-      if (newStatus === 'served') message = 'Заказ успешно отмечен как отданный!';
-      if (newStatus === 'paid') message = 'Заказ успешно оплачен!';
-      showNotification(message, 'success');
+    // Обновление статуса заказа в Firestore
+    async function updateOrderStatus(orderId, newStatus) {
+      if (!state.user) return;
+      try {
+        const orderDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId);
+        await updateDoc(orderDocRef, { status: newStatus });
+        
+        let message = 'Статус обновлен';
+        if (newStatus === 'served') message = 'Заказ успешно отмечен как отданный!';
+        if (newStatus === 'paid') message = 'Заказ успешно оплачен!';
+        showNotification(message, 'success');
+      } catch (error) {
+        console.error("Ошибка обновления статуса:", error);
+        showNotification("Ошибка сети при обновлении статуса", "error");
+      }
     }
 
-    // Оплата всех активных заказов конкретного стола разом с их ФИЗИЧЕСКИМ объединением в один архивный чек
-    function payAllOrdersForTable(tableNum) {
-      // 1. Отбираем все неоплаченные (new или served) заказы стола
+    // Оплата всех заказов стола разом с физическим объединением в один архивный документ Firestore
+    async function payAllOrdersForTable(tableNum) {
+      if (!state.user) return;
+
       const activeTableOrders = state.orders.filter(order => order.table === tableNum && order.status !== 'paid');
-      
       if (activeTableOrders.length === 0) return;
 
-      // 2. Объединяем блюда из всех заказов стола в один ассоциативный массив
       const combinedItemsMap = {};
       let totalAmount = 0;
 
@@ -278,9 +388,8 @@
         totalAmount += order.total;
       });
 
-      // 3. Создаем один объединенный оплаченный заказ для истории
+      const combinedOrderId = 'ord_comb_' + Date.now();
       const combinedPaidOrder = {
-        id: 'ord_comb_' + Date.now(),
         table: tableNum,
         items: Object.values(combinedItemsMap),
         status: 'paid',
@@ -288,25 +397,33 @@
         total: totalAmount
       };
 
-      // 4. Удаляем старые раздельные неоплаченные заказы этого стола из списка
-      state.orders = state.orders.filter(order => !(order.table === tableNum && order.status !== 'paid'));
+      try {
+        // 1. Создаем один итоговый оплаченный документ
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'orders', combinedOrderId), combinedPaidOrder);
 
-      // 5. Добавляем новый единый объединенный оплаченный заказ на первое место
-      state.orders.unshift(combinedPaidOrder);
+        // 2. Удаляем старые неоплаченные документы из базы данных
+        for (const order of activeTableOrders) {
+          await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'orders', order.id));
+        }
 
-      // 6. Синхронизируем с localStorage и перерисовываем
-      localStorage.setItem('qr_restaurant_orders', JSON.stringify(state.orders));
-      render();
-      showNotification(`Все заказы стола №${tableNum} объединены и оплачены!`, 'success');
+        showNotification(`Все заказы стола №${tableNum} успешно объединены и оплачены!`, 'success');
+      } catch (error) {
+        console.error("Ошибка при оплате стола:", error);
+        showNotification("Ошибка сети при проведении оплаты", "error");
+      }
     }
 
-    // Полное удаление заказа из базы данных
-    function deleteOrder(orderId) {
+    // Полное удаление заказа из базы данных Firestore
+    async function deleteOrder(orderId) {
+      if (!state.user) return;
       if (confirm('Вы уверены, что хотите окончательно удалить этот заказ из базы?')) {
-        state.orders = state.orders.filter(order => order.id !== orderId);
-        localStorage.setItem('qr_restaurant_orders', JSON.stringify(state.orders));
-        render();
-        showNotification('Заказ удален', 'info');
+        try {
+          await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId));
+          showNotification('Заказ удален', 'info');
+        } catch (error) {
+          console.error("Ошибка удаления:", error);
+          showNotification("Не удалось удалить заказ", "error");
+        }
       }
     }
 
@@ -319,7 +436,6 @@
       }
     }
 
-    // Закрытие чека
     function closeBillModal() {
       state.selectedBillOrder = null;
       render();
@@ -355,7 +471,7 @@
           <h2>СЧЕТ НА ОПЛАТУ</h2>
           <p class="center">БУФЕТ В КЗЦ</p>
           <div class="divider"></div>
-          <p><strong>ЗАКАЗ:</strong> ${order.id.substring(4, 10)}</p>
+          <p><strong>ЗАКАЗ:</strong> ${order.id.substring(0, 12)}</p>
           <p><strong>СТОЛ №:</strong> ${order.table}</p>
           <p><strong>ДАТА:</strong> ${new Date(order.timestamp).toLocaleString('ru-RU')}</p>
           <div class="divider"></div>
@@ -381,56 +497,6 @@
         </html>
       `);
       printWindow.document.close();
-    }
-
-    // --- Уведомления ---
-    function showNotification(message, type = 'info') {
-      const existingToast = document.getElementById('toast');
-      if (existingToast) existingToast.remove();
-
-      const toast = document.createElement('div');
-      toast.id = 'toast';
-      toast.className = `fixed top-4 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-xl shadow-lg font-medium text-sm transition-all duration-300 animate-fade-in flex items-center gap-2 text-white ${
-        type === 'success' ? 'bg-green-600' : type === 'error' ? 'bg-red-600' : 'bg-brand-brown'
-      }`;
-      
-      let icon = 'info';
-      if (type === 'success') icon = 'check-circle';
-      if (type === 'error') icon = 'alert-octagon';
-
-      toast.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4"></i> <span>${message}</span>`;
-      document.body.appendChild(toast);
-      lucide.createIcons();
-
-      setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translate(-50%, -10px)';
-        setTimeout(() => toast.remove(), 300);
-      }, 3000);
-    }
-
-    function showOrderSuccessModal() {
-      const modal = document.createElement('div');
-      modal.className = "fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in";
-      modal.innerHTML = `
-        <div class="bg-brand-cream border-2 border-brand-brown p-8 rounded-2xl w-full max-w-sm text-center shadow-2xl relative">
-          <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-green-500">
-            <i data-lucide="check" class="w-8 h-8 text-green-600"></i>
-          </div>
-          <h3 class="text-2xl font-bold text-brand-dark mb-2">Заказ отправлен!</h3>
-          <p class="text-brand-brown text-sm mb-6">Стол №${state.tableNumber}. Наша команда уже начала готовить ваш заказ. Пожалуйста, ожидайте.</p>
-          <button id="closeSuccessBtn" class="w-full bg-brand-peach hover:bg-brand-brown text-white font-bold py-3 rounded-xl transition duration-200">
-            Отлично, спасибо!
-          </button>
-        </div>
-      `;
-      document.body.appendChild(modal);
-      lucide.createIcons();
-
-      document.getElementById('closeSuccessBtn').onclick = () => {
-        modal.remove();
-        render();
-      };
     }
 
     // --- Функция генерации интерфейса (Рендеринг) ---
@@ -518,7 +584,7 @@
           const isActive = cat.id === state.activeCategoryId;
           return `
             <button 
-              onclick="state.activeCategoryId = '${cat.id}'; render();" 
+              onclick="changeCategory('${cat.id}')" 
               class="w-full h-11 px-2 flex items-center justify-center rounded-xl text-center text-[11px] leading-tight font-extrabold transition-all border ${
                 isActive 
                   ? 'bg-brand-peach text-white border-brand-peach shadow-sm' 
@@ -619,19 +685,19 @@
                     <i data-lucide="shopping-bag" class="text-brand-peach w-5 h-5"></i>
                     <h3 class="text-md font-bold text-brand-dark uppercase tracking-wide">Ваш заказ (Стол №${state.tableNumber})</h3>
                   </div>
-                  <button onclick="state.showConfirmOrderModal = false; render();" class="text-brand-brown hover:text-brand-dark">
+                  <button onclick="closeConfirmOrderModal()" class="text-brand-brown hover:text-brand-dark">
                     <i data-lucide="x" class="w-5 h-5"></i>
                   </button>
                 </div>
                 
                 <p class="text-[10px] text-brand-brown font-semibold flex-shrink-0">Проверьте состав заказа. Вы можете отредактировать позиции перед отправкой.</p>
                 
-                <!-- Прокручиваемый список позиций в корзине (высота строго ограничена, чтобы кнопка снизу была всегда видна) -->
+                <!-- Прокручиваемый список позиций в корзине -->
                 <div class="space-y-2 overflow-y-auto max-h-[32vh] pr-1 no-scrollbar flex-1">
                   ${cartItemsHtml}
                 </div>
 
-                <!-- Подвал модального окна (Сумма и Кнопки всегда зафиксированы снизу) -->
+                <!-- Подвал модального окна -->
                 <div class="space-y-3 pt-3 border-t border-brand-brown/10 flex-shrink-0">
                   <div class="flex justify-between items-center">
                     <span class="font-extrabold text-xs text-brand-brown uppercase">Итого к отправке:</span>
@@ -640,7 +706,7 @@
 
                   <div class="grid grid-cols-3 gap-2">
                     <button 
-                      onclick="state.showConfirmOrderModal = false; render();" 
+                      onclick="closeConfirmOrderModal()" 
                       class="col-span-1 bg-white border border-brand-brown/20 text-brand-brown font-bold text-xs py-3 rounded-xl transition hover:bg-white/80"
                     >
                       Назад
@@ -950,7 +1016,7 @@
               </button>
               
               <div class="text-center pb-4 border-b border-dashed border-brand-brown/30">
-                <i data-lucide="receipt" class="w-10 h-10 text-brand-peach mx-auto mb-2"></i>
+                <i data-lucide="receipt" class="text-brand-peach mx-auto mb-2"></i>
                 <h3 class="text-lg font-bold text-brand-dark uppercase">Счет на оплату</h3>
                 <p class="text-xs text-brand-brown font-bold text-sm">Стол №${state.selectedBillOrder.table}</p>
               </div>
