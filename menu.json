@@ -2,12 +2,17 @@
 "categories": [
 {
 "id": "alcohol",
-"title": "Алкогольные напитки",
+"title": "Алкоголь",
 "items": [
-{ "id": "alc_1", "name": "Вино красное сухое", "price": 350, "description": "Каберне Совиньон, 150 мл", "available": true },
-{ "id": "alc_2", "name": "Вино белое сухое", "price": 350, "description": "Шардоне, 150 мл", "available": true },
-{ "id": "alc_3", "name": "Пиво крафтовое светлое", "price": 280, "description": "Фильтрованное, 500 мл", "available": true },
-{ "id": "alc_4", "name": "Сидр яблочный", "price": 260, "description": "Полусладкий, 400 мл", "available": true }
+{ "id": "alc_1", "name": "Балаклава Брют, БОКАЛ", "price": 400, "description": "Крым, белое брют 125 мл", "available": true },
+{ "id": "alc_2", "name": "Балаклава Мускат, БОКАЛ", "price": 400, "description": "Крым, белое полусладкое 125 мл", "available": true },
+{ "id": "alc_3", "name": "ЗБ Рислинг, БОКАЛ", "price": 350, "description": "Крым, белое полусухое, 150 мл", "available": true },
+{ "id": "alc_4", "name": "Кьянти Серистори, БОКАЛ", "price": 500, "description": "Италия, красное сухое, 150 мл", "available": true },
+{ "id": "alc_5", "name": "Ле Гран Нуар Совиньон Блан, БОКАЛ", "price": 400, "description": "Франция, белое сухое, 150 мл", "available": true },
+{ "id": "alc_6", "name": "Ле Гран Нуар Пино Нуар, БОКАЛ", "price": 400, "description": "Франция, белое сухое, 150 мл", "available": true },
+{ "id": "alc_7", "name": "Коньяк Кизляр 3*", "price": 300, "description": "50 мл", "available": true },
+{ "id": "alc_8", "name": "Настойка Хреновуха", "price": 190, "description": "Ванильное Небо, 50 мл", "available": true },
+{ "id": "alc_9", "name": "Настойка Клюковка", "price": 190, "description": "Ванильное Небо, 50 мл", "available": true }
 ]
 },
 {
