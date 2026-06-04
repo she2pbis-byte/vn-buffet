@@ -2,7 +2,7 @@
 "categories": [
 {
 "id": "alcohol",
-"title": "Алкоголь",
+"title": "Алкогольные напитки",
 "items": [
 { "id": "alc_1", "name": "Балаклава Брют, БОКАЛ", "price": 400, "description": "Крым, белое брют 125 мл", "available": true },
 { "id": "alc_2", "name": "Балаклава Мускат, БОКАЛ", "price": 400, "description": "Крым, белое полусладкое 125 мл", "available": true },
