@@ -5,10 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>БУФЕТ В КЗЦ</title>
   
+  <!-- Подключение Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   
+  <!-- Иконки Lucide для наглядного UI -->
   <script src="https://unpkg.com/lucide@latest"></script>
   
+  <!-- Конфигурация кастомных цветов из предоставленной палитры -->
   <script>
     tailwind.config = {
       theme: {
@@ -26,6 +29,7 @@
     }
   </script>
 
+  <!-- Стили для плавности интерфейса -->
   <style>
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(10px); }
@@ -39,12 +43,14 @@
 <body class="bg-brand-cream text-brand-dark font-sans min-h-screen selection:bg-brand-peach selection:text-white">
 
   <div id="app" class="max-w-md mx-auto bg-brand-cream min-h-screen relative flex flex-col shadow-2xl">
+    <!-- Приложение монтируется динамически через JS -->
     <div id="loader" class="flex flex-col items-center justify-center flex-1 py-20">
       <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-peach"></div>
       <p class="mt-4 text-brand-brown font-medium">Подключение к системе заказов...</p>
     </div>
   </div>
 
+  <!-- Подключение Firebase через официальные CDN-модули (v11.6.1) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { 
@@ -67,7 +73,6 @@
     } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     // --- Конфигурация Firebase ---
-    // Ваши персональные ключи успешно интегрированы в сборку проекта vn-buffet
     const firebaseConfig = typeof __firebase_config !== 'undefined' 
       ? JSON.parse(__firebase_config) 
       : {
@@ -79,7 +84,6 @@
           appId: "1:796549505290:web:5cd49810ce9a2235649af3"
         };
 
-    // Определение уникального ID приложения для изоляции коллекции в Firestore
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'vn-buffet-app';
 
     // Инициализация сервисов Firebase
@@ -94,10 +98,11 @@
       menuData: null,
       activeCategoryId: '',
       cart: {}, // Храним { itemId: quantity }
-      orders: [], // Real-time список заказов из Firestore
+      orders: [], // Real-time список всех заказов из Firestore
       adminTab: 'new', // 'new' | 'served' | 'archive'
       selectedBillOrder: null, // Выбранный заказ для чека
       showConfirmOrderModal: false, // Окно проверки корзины
+      showGuestHistoryModal: false, // Модальное окно истории заказов гостя
       user: null, // Авторизованный в Firebase пользователь
     };
 
@@ -109,7 +114,7 @@
     // Ссылка на коллекцию заказов по правилу безопасных путей (RULE 1)
     const ordersCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'orders');
 
-    // Экспонируем функции в глобальную область видимости, чтобы вызывать их из onclick в HTML
+    // Экспонируем функции в глобальную область видимости
     window.addToCart = addToCart;
     window.removeFromCart = removeFromCart;
     window.clearCart = clearCart;
@@ -125,6 +130,8 @@
     window.printBill = printBill;
     window.changeCategory = changeCategory;
     window.closeConfirmOrderModal = closeConfirmOrderModal;
+    window.toggleGuestHistoryModal = toggleGuestHistoryModal;
+    window.logout = logout;
 
     // --- Загрузка и инициализация данных ---
     async function initApp() {
@@ -138,7 +145,7 @@
           state.activeCategoryId = state.menuData.categories[0].id;
         }
 
-        // 2. Авторизация в Firebase перед любыми запросами (RULE 3)
+        // 2. Авторизация в Firebase
         const initAuth = async () => {
           if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
             await signInWithCustomToken(auth, __initial_auth_token);
@@ -152,23 +159,39 @@
         onAuthStateChanged(auth, (firebaseUser) => {
           state.user = firebaseUser;
           if (firebaseUser) {
-            // Подписываемся на заказы только после успешной авторизации
             subscribeToOrders();
           }
         });
 
-        // 4. Проверяем наличие параметров стола или админа в URL (?table=15 или ?admin=true)
+        // 4. Проверяем параметры из URL (?table=15 или ?admin=true)
         const urlParams = new URLSearchParams(window.location.search);
         const tableParam = urlParams.get('table');
         const adminParam = urlParams.get('admin');
 
         if (adminParam === 'true') {
           state.screen = 'admin_panel';
+          localStorage.setItem('bufet_role', 'admin');
+          showNotification('Успешный вход сотрудника', 'success');
         } else if (tableParam) {
           const tableNum = parseInt(tableParam, 10);
           if (tableNum >= MIN_TABLE && tableNum <= MAX_TABLE) {
             state.tableNumber = tableNum;
             state.screen = 'guest_menu';
+            localStorage.setItem('bufet_role', 'guest');
+            localStorage.setItem('bufet_table', tableNum);
+          }
+        } else {
+          // ЕСЛИ URL пустой — проверяем сохраненную сессию (Улучшение 1)
+          const savedRole = localStorage.getItem('bufet_role');
+          const savedTable = localStorage.getItem('bufet_table');
+
+          if (savedRole === 'admin') {
+            state.screen = 'admin_panel';
+            showNotification('Восстановлена сессия сотрудника', 'success');
+          } else if (savedRole === 'guest' && savedTable) {
+            state.tableNumber = parseInt(savedTable, 10);
+            state.screen = 'guest_menu';
+            showNotification(`Стол №${savedTable}. Добро пожаловать назад!`, 'success');
           }
         }
 
@@ -179,7 +202,7 @@
           <div class="p-8 text-center flex flex-col justify-center items-center min-h-screen">
             <i data-lucide="alert-triangle" class="w-16 h-16 text-red-500 mb-4"></i>
             <h2 class="text-xl font-bold text-brand-dark mb-2">Ошибка подключения</h2>
-            <p class="text-brand-brown text-sm mb-6">Убедитесь, что файл <strong>menu.json</strong> лежит в той же папке, что и index.html, а также проверьте настройки подключения к Firebase в коде.</p>
+            <p class="text-brand-brown text-sm mb-6">Убедитесь, что файл <strong>menu.json</strong> лежит в той же папке, что и index.html.</p>
             <button onclick="location.reload()" class="bg-brand-peach text-white font-bold py-2 px-6 rounded-xl hover:bg-brand-brown transition">Повторить попытку</button>
           </div>
         `;
@@ -187,11 +210,9 @@
       }
     }
 
-    // --- Real-time подписка на заказы из Firestore (RULE 2 - Без сложных сортировок в query) ---
+    // --- Real-time подписка на заказы из Firestore ---
     function subscribeToOrders() {
       if (!state.user) return;
-
-      // Получаем все заказы из Firestore. Сортировку по дате сделаем на клиенте в памяти
       const q = query(ordersCollectionRef);
 
       onSnapshot(q, (snapshot) => {
@@ -200,12 +221,9 @@
           fetchedOrders.push({ id: doc.id, ...doc.data() });
         });
 
-        // Сортируем полученные заказы на клиенте по времени (сначала новые)
+        // Сортируем полученные заказы по времени (сначала новые)
         fetchedOrders.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
         state.orders = fetchedOrders;
-        
-        // Перерисовываем интерфейс только если мы на экране админа или открыты модалки
         render();
       }, (error) => {
         console.error("Ошибка при чтении Firestore:", error);
@@ -218,7 +236,6 @@
       render();
     }
 
-    // Отслеживание всплывающих уведомлений на UI
     function showNotification(message, type = 'info') {
       const existingToast = document.getElementById('system-toast');
       if (existingToast) existingToast.remove();
@@ -282,6 +299,21 @@
       render();
     }
 
+    function toggleGuestHistoryModal(value) {
+      state.showGuestHistoryModal = value;
+      render();
+    }
+
+    // Выход из системы с очисткой сохраненного стола/сессии
+    function logout() {
+      localStorage.removeItem('bufet_role');
+      localStorage.removeItem('bufet_table');
+      state.screen = 'login';
+      state.tableNumber = null;
+      state.cart = {};
+      render();
+    }
+
     // --- Обработчики событий ---
     function handleGuestLogin(event) {
       event.preventDefault();
@@ -291,6 +323,8 @@
       if (tableNum >= MIN_TABLE && tableNum <= MAX_TABLE) {
         state.tableNumber = tableNum;
         state.screen = 'guest_menu';
+        localStorage.setItem('bufet_role', 'guest');
+        localStorage.setItem('bufet_table', tableNum);
         render();
       } else {
         showNotification(`Пожалуйста, введите номер стола от ${MIN_TABLE} до ${MAX_TABLE}`, 'error');
@@ -303,6 +337,7 @@
 
       if (passInput === ADMIN_PASSWORD) {
         state.screen = 'admin_panel';
+        localStorage.setItem('bufet_role', 'admin');
         render();
       } else {
         showNotification('Неверный пароль администратора!', 'error');
@@ -343,14 +378,12 @@
       };
 
       try {
-        // Сохраняем в коллекцию по строгому пути
         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId), newOrder);
         
         state.showConfirmOrderModal = false;
         state.cart = {};
         
-        showNotification("Заказ успешно отправлен на кухню!", "success");
-        render();
+        showOrderSuccessModal();
       } catch (error) {
         console.error("Ошибка сохранения заказа в Firestore:", error);
         showNotification("Не удалось отправить заказ. Проверьте интернет.", "error");
@@ -374,7 +407,7 @@
       }
     }
 
-    // Оплата всех заказов стола разом с физическим объединением в один архивный документ Firestore
+    // Оплата всех заказов стола разом с физическим объединением
     async function payAllOrdersForTable(tableNum) {
       if (!state.user) return;
 
@@ -405,10 +438,8 @@
       };
 
       try {
-        // 1. Создаем один итоговый оплаченный документ
         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'orders', combinedOrderId), combinedPaidOrder);
 
-        // 2. Удаляем старые неоплаченные документы из базы данных
         for (const order of activeTableOrders) {
           await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'orders', order.id));
         }
@@ -434,7 +465,6 @@
       }
     }
 
-    // Формирование и просмотр детального счета для конкретного заказа из архива
     function openBill(orderId) {
       const order = state.orders.find(o => o.id === orderId);
       if (order) {
@@ -517,6 +547,7 @@
         container.className = "max-w-md mx-auto bg-brand-cream min-h-screen relative flex flex-col justify-between p-6 shadow-2xl animate-fade-in";
         container.innerHTML = `
           <div class="flex-1 flex flex-col justify-center py-4">
+            <!-- Логотип/Заголовок -->
             <div class="text-center mb-8">
               <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-brand-peach text-white mb-3 shadow-md">
                 <i data-lucide="chef-hat" class="w-8 h-8"></i>
@@ -525,6 +556,7 @@
               <p class="text-xs text-brand-brown font-semibold mt-1">Онлайн-заказ</p>
             </div>
 
+            <!-- Блок Гостя -->
             <div class="bg-white border border-brand-brown/10 p-6 rounded-2xl shadow-sm mb-6">
               <h2 class="text-md font-bold text-brand-dark mb-4 flex items-center gap-2 border-b border-brand-cream pb-2">
                 <i data-lucide="user" class="w-4 h-4 text-brand-peach"></i> Я — Гость
@@ -547,6 +579,7 @@
               </form>
             </div>
 
+            <!-- Блок Админа -->
             <div class="bg-white border border-brand-brown/10 p-6 rounded-2xl shadow-sm">
               <h2 class="text-md font-bold text-brand-dark mb-4 flex items-center gap-2 border-b border-brand-cream pb-2">
                 <i data-lucide="shield-check" class="w-4 h-4 text-brand-brown"></i> Панель сотрудника
@@ -635,7 +668,7 @@
         const cartCount = getCartCount();
         const cartTotal = getCartTotal();
         const bottomCartHtml = cartCount > 0 ? `
-          <div class="sticky bottom-0 left-0 right-0 p-4 bg-white/95 border-t border-brand-brown/10 backdrop-blur-md shadow-lg animate-fade-in">
+          <div class="sticky bottom-0 left-0 right-0 p-4 bg-white/95 border-t border-brand-brown/10 backdrop-blur-md shadow-lg animate-fade-in z-20">
             <div class="flex justify-between items-center mb-3">
               <div>
                 <span class="text-xs text-brand-brown font-medium">Выбрано: <strong class="text-brand-dark">${cartCount} поз.</strong></span>
@@ -725,7 +758,98 @@
           `;
         }
 
+        // Всплывающее окно истории заказов гостя (Улучшение 2)
+        let guestHistoryModalHtml = '';
+        if (state.showGuestHistoryModal) {
+          // Фильтруем заказы этого стола
+          const myOrders = state.orders.filter(o => o.table === state.tableNumber);
+          
+          let myOrdersHtml = '';
+          let unpaidSum = 0;
+
+          if (myOrders.length === 0) {
+            myOrdersHtml = `
+              <div class="text-center py-8">
+                <i data-lucide="clock" class="w-10 h-10 text-brand-brown/30 mx-auto mb-2"></i>
+                <p class="text-xs text-brand-brown font-semibold">История заказов пуста.</p>
+              </div>
+            `;
+          } else {
+            myOrdersHtml = myOrders.map(order => {
+              const formattedTime = new Date(order.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+              
+              // Цветовое обозначение статуса
+              let statusText = 'Обрабатывается';
+              let statusStyle = 'bg-amber-100 text-amber-800 border-amber-200';
+              
+              if (order.status === 'served') {
+                statusText = 'Отдан / Не оплачен';
+                statusStyle = 'bg-brand-peach/20 text-brand-brown border-brand-peach/30';
+                unpaidSum += order.total;
+              } else if (order.status === 'paid') {
+                statusText = 'Оплачен';
+                statusStyle = 'bg-green-100 text-green-800 border-green-200';
+              } else {
+                unpaidSum += order.total; // Считаем и новые заказы в общую неоплаченную сумму
+              }
+
+              const itemsSummary = order.items.map(i => `${i.name} x${i.count}`).join(', ');
+
+              return `
+                <div class="p-3 bg-white border border-brand-brown/10 rounded-xl space-y-1.5 text-xs animate-fade-in">
+                  <div class="flex justify-between items-center">
+                    <span class="text-[10px] text-brand-brown font-black">Заказ ${order.id.replace('ord_comb_', '').substring(0, 6)}</span>
+                    <span class="text-[10px] text-brand-brown/60">${formattedTime}</span>
+                  </div>
+                  <div class="text-brand-dark font-medium line-clamp-2 text-[11px]">${itemsSummary}</div>
+                  <div class="flex justify-between items-center pt-1.5 border-t border-brand-brown/5">
+                    <span class="px-2 py-0.5 rounded text-[9px] font-bold border ${statusStyle}">${statusText}</span>
+                    <span class="font-bold text-brand-dark">${order.total} ₽</span>
+                  </div>
+                </div>
+              `;
+            }).join('');
+          }
+
+          guestHistoryModalHtml = `
+            <div class="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+              <div class="bg-brand-cream border-2 border-brand-brown p-6 rounded-2xl w-full max-w-sm shadow-2xl relative max-h-[85vh] flex flex-col justify-between">
+                <button onclick="toggleGuestHistoryModal(false)" class="absolute top-4 right-4 text-brand-brown hover:text-brand-dark">
+                  <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+                
+                <div class="flex-1 flex flex-col min-h-0">
+                  <div class="text-center pb-3 border-b border-brand-brown/10 mb-3 flex-shrink-0">
+                    <i data-lucide="history" class="w-8 h-8 text-brand-peach mx-auto mb-1"></i>
+                    <h3 class="text-md font-bold text-brand-dark uppercase">История заказов</h3>
+                    <p class="text-xs text-brand-brown">Стол №${state.tableNumber}</p>
+                  </div>
+
+                  <!-- Прокручиваемый список заказов -->
+                  <div class="space-y-2.5 overflow-y-auto flex-1 pr-1 no-scrollbar my-2">
+                    ${myOrdersHtml}
+                  </div>
+                </div>
+
+                <div class="pt-3 border-t border-brand-brown/10 mt-3 flex-shrink-0 space-y-3">
+                  <div class="flex justify-between items-center">
+                    <span class="text-xs font-bold text-brand-brown uppercase">Сумма к оплате на кассе:</span>
+                    <span class="text-base font-black text-brand-peach">${unpaidSum} ₽</span>
+                  </div>
+                  <button 
+                    onclick="toggleGuestHistoryModal(false)" 
+                    class="w-full bg-brand-peach hover:bg-brand-brown text-white font-bold py-2.5 rounded-xl transition text-xs"
+                  >
+                    Вернуться в меню
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+
         container.innerHTML = `
+          <!-- Upper Navbar -->
           <header class="bg-brand-dark text-brand-cream px-4 py-4 sticky top-0 z-20 flex justify-between items-center shadow-md">
             <div class="flex items-center gap-2">
               <div class="bg-brand-peach rounded-lg p-1">
@@ -736,30 +860,51 @@
                 <p class="text-[10px] text-brand-cream/80">Раздел: ${currentCategory.title}</p>
               </div>
             </div>
+            
             <div class="flex items-center gap-2">
+              <!-- Иконка истории заказов (Улучшение 2) -->
+              <button 
+                onclick="toggleGuestHistoryModal(true)" 
+                class="bg-brand-brown p-2 rounded-full border border-brand-peach/30 text-brand-cream hover:bg-brand-peach transition relative"
+                title="История заказов стола"
+              >
+                <i data-lucide="history" class="w-4 h-4"></i>
+                ${state.orders.filter(o => o.table === state.tableNumber && o.status !== 'paid').length > 0 ? `
+                  <span class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-brand-peach rounded-full border border-brand-dark animate-pulse"></span>
+                ` : ''}
+              </button>
+
               <div class="bg-brand-brown px-3 py-1.5 rounded-full text-xs font-bold border border-brand-peach flex items-center gap-1.5 shadow-inner">
                 <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
                 Стол №${state.tableNumber}
               </div>
-              <button onclick="state.screen = 'login'; render();" class="text-brand-cream/80 hover:text-white p-1" title="Выйти">
+              
+              <button onclick="logout()" class="text-brand-cream/80 hover:text-white p-1" title="Сменить стол/Выйти">
                 <i data-lucide="log-out" class="w-4 h-4"></i>
               </button>
             </div>
           </header>
 
+          <!-- Плитка категорий меню -->
           <div class="sticky top-[58px] z-10 bg-brand-cream/95 backdrop-blur-md border-b border-brand-brown/10 p-3">
             <div class="grid grid-cols-2 gap-2">
               ${categoryTabsHtml}
             </div>
           </div>
 
+          <!-- Список блюд -->
           <main class="flex-1 p-4 space-y-3">
             ${itemsHtml}
           </main>
 
+          <!-- Нижняя часть с корзиной -->
           ${bottomCartHtml}
 
+          <!-- Окно предварительного просмотра перед отправкой -->
           ${confirmOrderModalHtml}
+
+          <!-- Окно истории заказов стола -->
+          ${guestHistoryModalHtml}
         `;
       }
 
@@ -1006,7 +1151,7 @@
               </button>
               
               <div class="text-center pb-4 border-b border-dashed border-brand-brown/30">
-                <i data-lucide="receipt" class="text-brand-peach mx-auto mb-2"></i>
+                <i data-lucide="receipt" class="w-10 h-10 text-brand-peach mx-auto mb-2"></i>
                 <h3 class="text-lg font-bold text-brand-dark uppercase">Счет на оплату</h3>
                 <p class="text-xs text-brand-brown font-bold text-sm">Стол №${state.selectedBillOrder.table}</p>
               </div>
@@ -1044,6 +1189,7 @@
         ` : '';
 
         container.innerHTML = `
+          <!-- Шапка админки -->
           <header class="bg-brand-dark text-brand-cream px-4 py-4 sticky top-0 z-20 flex justify-between items-center shadow-md">
             <div class="flex items-center gap-2">
               <i data-lucide="terminal" class="w-5 h-5 text-brand-peach"></i>
@@ -1052,17 +1198,20 @@
                 <p class="text-[10px] text-brand-cream/80">Официант / Администратор</p>
               </div>
             </div>
-            <button onclick="state.screen = 'login'; render();" class="bg-brand-brown hover:bg-brand-peach text-white text-xs font-bold px-3 py-1.5 rounded-xl transition flex items-center gap-1">
+            <button onclick="logout()" class="bg-brand-brown hover:bg-brand-peach text-white text-xs font-bold px-3 py-1.5 rounded-xl transition flex items-center gap-1">
               <i data-lucide="log-out" class="w-3.5 h-3.5"></i> Выйти
             </button>
           </header>
 
+          <!-- Табы Новые / На столах / Архив -->
           ${tabsHtml}
 
+          <!-- Основной контент (Список заказов) -->
           <main class="flex-1 p-4 space-y-4 overflow-y-auto">
             ${ordersHtml}
           </main>
 
+          <!-- Модальное окно счета -->
           ${billModalHtml}
         `;
       }
