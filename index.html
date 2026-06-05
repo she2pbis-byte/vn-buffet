@@ -116,8 +116,8 @@
       cart: {}, // Храним { itemId: quantity }
       orders: [], // Real-time список всех заказов из Firestore
       adminTab: 'new', // 'new' | 'served' | 'inventory' | 'archive'
-      expandedTableNum: null, // Хранит номер выбранного для раскрытия стола во вкладке "Столы"
       selectedBillOrder: null, // Выбранный заказ для чека
+      selectedAdminTable: null, // Выбранный стол для детального просмотра в панели сотрудника
       showConfirmOrderModal: false, // Окно проверки корзины
       showGuestHistoryModal: false, // Модальное окно истории заказов гостя
       user: null, // Авторизованный в Firebase пользователь
@@ -153,7 +153,8 @@
     window.logout = logout;
     window.requestBillPayment = requestBillPayment;
     window.switchAdminTab = switchAdminTab;
-    window.toggleTableDetails = toggleTableDetails;
+    window.selectAdminTable = selectAdminTable;
+    window.closeAdminTableModal = closeAdminTableModal;
     
     // Глобальные функции для управления остатками (Inventory)
     window.setStockZero = setStockZero;
@@ -370,18 +371,20 @@
     // Изменение вкладок панели администратора
     function switchAdminTab(tabName) {
       state.adminTab = tabName;
-      state.expandedTableNum = null; // сбрасываем раскрытый стол при переходе между вкладками
+      // При смене вкладки сбрасываем выбранный стол
+      state.selectedAdminTable = null;
       render();
     }
 
-    // Тап по плитке стола во вкладке "Столы"
-    function toggleTableDetails(tableNum) {
-      const targetStr = String(tableNum);
-      if (state.expandedTableNum === targetStr) {
-        state.expandedTableNum = null; // закрываем, если нажат повторно
-      } else {
-        state.expandedTableNum = targetStr; // открываем выбранный
-      }
+    // Выбор стола для детального просмотра в админке
+    function selectAdminTable(tableNum) {
+      state.selectedAdminTable = String(tableNum);
+      render();
+    }
+
+    // Закрытие модального окна стола
+    function closeAdminTableModal() {
+      state.selectedAdminTable = null;
       render();
     }
 
@@ -451,7 +454,7 @@
       state.screen = 'login';
       state.tableNumber = null;
       state.cart = {};
-      state.expandedTableNum = null;
+      state.selectedAdminTable = null;
       render();
     }
 
@@ -640,8 +643,7 @@
           await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'orders', order.id));
         }
 
-        // Сбрасываем выбранный стол из просмотра деталей
-        state.expandedTableNum = null;
+        state.selectedAdminTable = null; // Закрываем модальное окно стола после оплаты
         showNotification(`Все заказы стола №${tableNum} успешно объединены и оплачены!`, 'success');
       } catch (error) {
         console.error("Ошибка при оплате стола:", error);
@@ -1161,9 +1163,37 @@
         const servedOrders = state.orders.filter(o => o.status === 'served');
         const paidOrders = state.orders.filter(o => o.status === 'paid');
 
+        // Группировка активных заказов по столам для вкладки "Столы"
+        const groupedByTable = {};
+        servedOrders.forEach(order => {
+          if (!groupedByTable[order.table]) {
+            groupedByTable[order.table] = {
+              table: order.table,
+              orders: [],
+              total: 0,
+              items: {},
+              waitingForPay: false
+            };
+          }
+          groupedByTable[order.table].orders.push(order);
+          groupedByTable[order.table].total += order.total;
+          
+          if (order.waitingForPay) {
+            groupedByTable[order.table].waitingForPay = true;
+          }
+
+          order.items.forEach(item => {
+            if (groupedByTable[order.table].items[item.id]) {
+              groupedByTable[order.table].items[item.id].count += item.count;
+            } else {
+              groupedByTable[order.table].items[item.id] = { ...item };
+            }
+          });
+        });
+
         // Поиск заказов, ожидающих оплату (waitingForPay) для индикаторов мигающих красных точек
         const hasNewWaiting = newOrders.some(o => o.waitingForPay);
-        const hasServedWaiting = servedOrders.some(o => o.waitingForPay);
+        const hasServedWaiting = Object.values(groupedByTable).some(t => t.waitingForPay);
 
         const tabsHtml = `
           <div class="flex border-b border-brand-brown/10 bg-white sticky top-[58px] z-10 overflow-x-auto no-scrollbar">
@@ -1186,7 +1216,7 @@
                   : 'border-transparent text-brand-brown/70 hover:text-brand-dark'
               }"
             >
-              <span>Столы (${servedOrders.length})</span>
+              <span>Столы (${Object.keys(groupedByTable).length})</span>
               ${hasServedWaiting ? '<span class="w-2 h-2 bg-red-600 rounded-full animate-pulse"></span>' : ''}
             </button>
             <button 
@@ -1280,155 +1310,73 @@
           }
         }
 
-        // Вкладка "Столы" (На столах) — РЕАЛИЗАЦИЯ КВАДРАТНЫХ ПЛАШЕК 3 В РЯД С РАСКРЫТИЕМ ДЕТАЛЕЙ ПО ТАПУ
+        // Вкладка "На столах" - ОТОБРАЖЕНИЕ КВАДРАТНЫМИ ПЛАШКАМИ (3 В РЯД)
         else if (state.adminTab === 'served') {
-          if (servedOrders.length === 0) {
+          const activeTablesList = Object.values(groupedByTable);
+
+          if (activeTablesList.length === 0) {
             ordersHtml = `
-              <div class="text-center py-20 px-4 animate-fade-in">
+              <div class="text-center py-20 px-4">
                 <div class="w-16 h-16 bg-white/50 border border-brand-brown/10 rounded-full flex items-center justify-center mx-auto mb-3">
                   <i data-lucide="glass-water" class="w-8 h-8 text-brand-brown/40"></i>
                 </div>
                 <h3 class="text-sm font-bold text-brand-dark">Нет активных столов</h3>
-                <p class="text-xs text-brand-brown/80 mt-1">Здесь будут отображаться неоплаченные столы.</p>
+                <p class="text-xs text-brand-brown/80 mt-1">Здесь будут отображаться столы с неоплаченными заказами.</p>
               </div>
             `;
           } else {
-            // Группируем неоплаченные заказы по номерам столов
-            const groupedByTable = {};
-            servedOrders.forEach(order => {
-              if (!groupedByTable[order.table]) {
-                groupedByTable[order.table] = {
-                  table: order.table,
-                  orders: [],
-                  total: 0,
-                  items: {},
-                  waitingForPay: false
-                };
-              }
-              groupedByTable[order.table].orders.push(order);
-              groupedByTable[order.table].total += order.total;
-              
-              if (order.waitingForPay) {
-                groupedByTable[order.table].waitingForPay = true;
-              }
-
-              order.items.forEach(item => {
-                if (groupedByTable[order.table].items[item.id]) {
-                  groupedByTable[order.table].items[item.id].count += item.count;
-                } else {
-                  groupedByTable[order.table].items[item.id] = { ...item };
-                }
-              });
-            });
-
-            // Сортировка: сначала столы с запросом счета, потом остальные
-            const sortedGroupedTables = Object.values(groupedByTable).sort((a, b) => {
+            // Сортировка: сначала те столы, гости которых просят счет
+            const sortedTables = activeTablesList.sort((a, b) => {
               const aWait = a.waitingForPay ? 1 : 0;
               const bWait = b.waitingForPay ? 1 : 0;
-              if (aWait !== bWait) return bWait - aWait;
-              return parseInt(a.table, 10) - parseInt(b.table, 10);
+              return bWait - aWait;
             });
 
-            // Генерация плиток столов (3 в ряд)
-            const gridTilesHtml = sortedGroupedTables.map(group => {
+            const gridHtml = sortedTables.map(group => {
               const isWaiting = group.waitingForPay;
-              const isExpanded = state.expandedTableNum === String(group.table);
+              
+              // Набор классов для интерактивной плашки стола
+              const cardClasses = isWaiting 
+                ? 'pulse-danger border-red-500 border-2 bg-red-50 text-red-900' 
+                : 'border-brand-peach/30 bg-white hover:border-brand-peach transition-all';
 
               return `
                 <button 
-                  onclick="toggleTableDetails('${group.table}')" 
-                  class="aspect-square flex flex-col justify-between p-3 rounded-2xl border-2 text-left transition relative active:scale-95 ${
-                    isExpanded 
-                      ? 'border-brand-peach bg-brand-peach/10 shadow-inner' 
-                      : isWaiting 
-                        ? 'pulse-danger border-red-500 bg-red-50/70' 
-                        : 'border-brand-brown/15 bg-white hover:border-brand-peach/40 shadow-sm'
-                  }"
+                  onclick="selectAdminTable('${group.table}')"
+                  class="aspect-square rounded-2xl border flex flex-col justify-between p-3.5 text-left shadow-sm active:scale-95 transition relative ${cardClasses}"
                 >
-                  <!-- Верхняя часть: Номер стола -->
+                  <!-- Номер стола и верхний индикатор "Просит расчет" -->
                   <div class="flex justify-between items-start w-full">
-                    <span class="font-extrabold text-[15px] text-brand-dark">№ ${group.table}</span>
+                    <span class="text-xs font-black uppercase tracking-wide bg-brand-cream/60 px-2 py-0.5 rounded-lg text-brand-dark">
+                      № ${group.table}
+                    </span>
                     ${isWaiting ? `
-                      <span class="relative flex h-2 w-2">
+                      <span class="flex h-2.5 w-2.5 relative">
                         <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-2 w-2 bg-red-600"></span>
+                        <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-600"></span>
                       </span>
                     ` : ''}
                   </div>
-
-                  <!-- Нижняя часть: Сумма заказа -->
-                  <div class="mt-auto w-full">
-                    <div class="text-[9px] text-brand-brown/60 font-bold uppercase tracking-tight leading-none mb-0.5">Сумма</div>
-                    <div class="text-xs font-black text-brand-peach truncate">${group.total} ₽</div>
+                  
+                  <!-- Итоговая информация по столу снизу плашки -->
+                  <div class="w-full mt-auto">
+                    <div class="text-[9px] text-brand-brown/60 font-bold leading-tight">
+                      ${group.orders.length} ${group.orders.length === 1 ? 'заказ' : group.orders.length < 5 ? 'заказа' : 'заказов'}
+                    </div>
+                    <div class="text-xs font-black text-brand-peach mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">
+                      ${group.total} ₽
+                    </div>
                   </div>
                 </button>
               `;
             }).join('');
 
-            // Генерация подробной информации о выбранном столе
-            let detailsCardHtml = '';
-            if (state.expandedTableNum && groupedByTable[state.expandedTableNum]) {
-              const selectedGroup = groupedByTable[state.expandedTableNum];
-              const isWaiting = selectedGroup.waitingForPay;
-
-              const itemsListHtml = Object.values(selectedGroup.items).map(item => `
-                <div class="flex justify-between items-center text-xs py-1.5 border-b border-brand-brown/5">
-                  <span class="text-brand-dark font-medium">${item.name} <span class="text-brand-peach font-bold">x${item.count}</span></span>
-                  <span class="text-brand-brown font-semibold">${item.price * item.count} ₽</span>
-                </div>
-              `).join('');
-
-              detailsCardHtml = `
-                <div class="bg-white p-4 rounded-2xl border-2 border-brand-peach/40 shadow-sm space-y-3 mt-4 animate-fade-in">
-                  <div class="flex justify-between items-center border-b border-brand-cream pb-2.5">
-                    <div class="flex items-center gap-2">
-                      <span class="bg-brand-peach text-white text-xs font-black px-3 py-1 rounded-full uppercase">СТОЛ №${selectedGroup.table}</span>
-                      <span class="text-[10px] bg-brand-cream text-brand-brown font-bold px-2 py-0.5 rounded border border-brand-peach/20">${selectedGroup.orders.length} зак.</span>
-                    </div>
-                    <button onclick="toggleTableDetails('${selectedGroup.table}')" class="text-brand-brown/50 hover:text-brand-dark p-1">
-                      <i data-lucide="chevrons-up" class="w-5 h-5"></i>
-                    </button>
-                  </div>
-
-                  <div class="bg-brand-cream/25 p-3 rounded-xl border border-brand-brown/5 max-h-[180px] overflow-y-auto space-y-1">
-                    ${itemsListHtml}
-                  </div>
-
-                  <!-- Статус «просит счет» над кнопкой оплаты -->
-                  ${isWaiting ? `
-                    <div class="text-center bg-red-50 text-red-600 text-xs font-extrabold py-2 px-3 rounded-xl border border-red-200 animate-pulse flex items-center justify-center gap-1.5">
-                      <i data-lucide="credit-card" class="w-4 h-4"></i> ГОСТЬ ПРОСИТ СЧЕТ!
-                    </div>
-                  ` : ''}
-
-                  <div class="pt-1 flex gap-2">
-                    <button 
-                      onclick="payAllOrdersForTable(${selectedGroup.table})" 
-                      class="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition shadow-md"
-                    >
-                      <i data-lucide="banknote" class="w-4 h-4"></i> Оплатить стол полностью
-                    </button>
-                  </div>
-                </div>
-              `;
-            } else {
-              detailsCardHtml = `
-                <div class="bg-brand-cream/40 border border-dashed border-brand-brown/20 p-4 rounded-xl text-center text-xs text-brand-brown/70 mt-4">
-                  <i data-lucide="info" class="w-4 h-4 mx-auto mb-1.5 text-brand-peach"></i>
-                  Выберите стол выше, чтобы просмотреть список блюд и провести оплату.
-                </div>
-              `;
-            }
-
             ordersHtml = `
-              <div class="space-y-1 animate-fade-in">
-                <!-- Сетка столов 3 в ряд -->
-                <div class="grid grid-cols-3 gap-2">
-                  ${gridTilesHtml}
+              <div class="space-y-3">
+                <div class="text-[10px] text-brand-brown/60 font-bold uppercase tracking-wider px-1">Выберите стол для детального просмотра:</div>
+                <div class="grid grid-cols-3 gap-3">
+                  ${gridHtml}
                 </div>
-                
-                <!-- Блок детализации -->
-                ${detailsCardHtml}
               </div>
             `;
           }
@@ -1564,7 +1512,7 @@
         // Модальное окно административного чека
         const billModalHtml = state.selectedBillOrder ? `
           <div class="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-50 flex items-start justify-center p-4 pb-24 overflow-y-auto">
-            <div class="bg-white border-2 border-brand-brown p-5 rounded-2xl w-full max-w-sm shadow-2xl relative max-h-[72vh] flex flex-col justify-between my-4">
+            <div class="bg-white border-2 border-brand-brown p-5 rounded-2xl w-full max-w-sm shadow-2xl relative max-h-[72vh] flex flex-col justify-between my-4 animate-fade-in">
               <button onclick="closeBillModal()" class="absolute top-4 right-4 text-brand-brown hover:text-brand-dark z-10">
                 <i data-lucide="x" class="w-5 h-5"></i>
               </button>
@@ -1603,6 +1551,85 @@
           </div>
         ` : '';
 
+        // ДЕТАЛЬНОЕ МОДАЛЬНОЕ ОКНО ДЛЯ СТОЛА (По тапу на плашку)
+        let tableDetailModalHtml = '';
+        if (state.selectedAdminTable && groupedByTable[state.selectedAdminTable]) {
+          const group = groupedByTable[state.selectedAdminTable];
+          const isWaiting = group.waitingForPay;
+
+          const detailedItemsHtml = Object.values(group.items).map(item => `
+            <div class="flex justify-between items-center text-xs py-2 border-b border-brand-brown/10">
+              <span class="text-brand-dark font-medium">${item.name}</span>
+              <div class="text-right flex items-center gap-4">
+                <span class="text-brand-peach font-bold">x${item.count}</span>
+                <span class="text-brand-brown font-semibold w-16 text-right">${item.price * item.count} ₽</span>
+              </div>
+            </div>
+          `).join('');
+
+          const orderTimestampsHtml = group.orders.map(o => {
+            const time = new Date(o.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+            return `<span class="bg-brand-cream text-brand-brown text-[10px] px-2 py-0.5 rounded font-bold">${time} (${o.total} ₽)</span>`;
+          }).join(' ');
+
+          tableDetailModalHtml = `
+            <div class="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-50 flex items-start justify-center p-4 pb-24 overflow-y-auto">
+              <div class="bg-brand-cream border-2 border-brand-brown p-5 rounded-3xl w-full max-w-sm shadow-2xl relative max-h-[80vh] flex flex-col justify-between my-4 animate-fade-in">
+                <button onclick="closeAdminTableModal()" class="absolute top-4 right-4 text-brand-brown hover:text-brand-dark z-20">
+                  <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+                
+                <div class="flex-1 flex flex-col min-h-0">
+                  <div class="text-center pb-3 border-b border-brand-brown/15 flex-shrink-0">
+                    <span class="bg-brand-peach text-white text-xs font-black px-4 py-1 rounded-full uppercase">СТОЛ №${group.table}</span>
+                    <div class="flex flex-wrap justify-center gap-1.5 mt-2.5">
+                      ${orderTimestampsHtml}
+                    </div>
+                  </div>
+
+                  <!-- Полный объединенный список блюд стола -->
+                  <div class="overflow-y-auto flex-1 my-3 pr-1">
+                    <div class="text-[10px] text-brand-brown/60 font-bold uppercase tracking-wider mb-2">Общий заказ стола:</div>
+                    <div class="space-y-1">
+                      ${detailedItemsHtml}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="pt-3 border-t border-brand-brown/15 flex-shrink-0 space-y-3">
+                  <div class="flex justify-between items-center">
+                    <span class="text-xs font-bold text-brand-brown uppercase">Итого к оплате стола:</span>
+                    <span class="text-lg font-black text-brand-peach">${group.total} ₽</span>
+                  </div>
+
+                  <!-- Статус «просит счет» -->
+                  ${isWaiting ? `
+                    <div class="text-center bg-red-50 text-red-600 text-xs font-extrabold py-2.5 px-3 rounded-xl border border-red-200 animate-pulse flex items-center justify-center gap-1.5">
+                      <i data-lucide="credit-card" class="w-4 h-4 animate-bounce"></i> ГОСТЬ СТОЛА ПРОСИТ РАСЧЕТ!
+                    </div>
+                  ` : ''}
+
+                  <!-- Действия над столом -->
+                  <div class="space-y-2">
+                    <button 
+                      onclick="payAllOrdersForTable(${group.table})" 
+                      class="w-full bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-3 rounded-xl flex items-center justify-center gap-1.5 transition shadow-md active:scale-95"
+                    >
+                      <i data-lucide="banknote" class="w-4 h-4"></i> Оплатить и закрыть стол
+                    </button>
+                    <button 
+                      onclick="closeAdminTableModal()" 
+                      class="w-full bg-white border border-brand-brown/20 text-brand-brown font-bold text-xs py-2.5 rounded-xl hover:bg-white/50 transition"
+                    >
+                      Назад к сетке столов
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+
         container.innerHTML = `
           <!-- Шапка админки -->
           <header class="bg-brand-dark text-brand-cream px-4 py-4 sticky top-0 z-20 flex justify-between items-center shadow-md">
@@ -1618,7 +1645,7 @@
             </button>
           </header>
 
-          <!-- Табы Новые / На столах / Остатки / Архив -->
+          <!-- Табы Новые / Столы / Остатки / Архив -->
           ${tabsHtml}
 
           <!-- Основной контент (Список заказов или панель складов) -->
@@ -1626,8 +1653,11 @@
             ${ordersHtml}
           </main>
 
-          <!-- Модальное окно счета -->
+          <!-- Модальное окно чека архива -->
           ${billModalHtml}
+
+          <!-- Детальное окно просмотра стола по тапу -->
+          ${tableDetailModalHtml}
         `;
       }
 
