@@ -358,6 +358,7 @@
       }
     }
 
+    // Авторизация сотрудника
     function handleAdminLogin(event) {
       event.preventDefault();
       const passInput = document.getElementById('passwordInput').value;
@@ -755,6 +756,7 @@
         ` : '';
 
         // Всплывающее интерактивное окно проверки и редактирования заказа перед отправкой
+        // Изменено: Выравнивание сверху (items-start pt-6) с ограничением высоты до 72vh для полной видимости кнопок внизу.
         let confirmOrderModalHtml = '';
         if (state.showConfirmOrderModal && cartCount > 0) {
           const cartItemsHtml = Object.entries(state.cart).map(([itemId, count]) => {
@@ -779,8 +781,8 @@
           }).join('');
 
           confirmOrderModalHtml = `
-            <div class="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-50 flex items-end justify-center animate-fade-in">
-              <div class="bg-brand-cream border-t-2 border-brand-brown p-5 rounded-t-3xl w-full max-w-md shadow-2xl space-y-4 max-h-[90vh] flex flex-col">
+            <div class="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-50 flex items-start justify-center p-4 pb-24 overflow-y-auto animate-fade-in">
+              <div class="bg-brand-cream border-2 border-brand-brown p-5 rounded-2xl w-full max-w-md shadow-2xl space-y-4 max-h-[72vh] flex flex-col my-4">
                 <div class="flex justify-between items-center border-b border-brand-brown/10 pb-3 flex-shrink-0">
                   <div class="flex items-center gap-2">
                     <i data-lucide="shopping-bag" class="text-brand-peach w-5 h-5"></i>
@@ -793,7 +795,7 @@
                 
                 <p class="text-[10px] text-brand-brown font-semibold flex-shrink-0">Проверьте состав заказа. Вы можете отредактировать позиции перед отправкой.</p>
                 
-                <!-- Прокручиваемый список, который гарантированно не вылезет за пределы экрана -->
+                <!-- Прокручиваемый список позиций с автоскроллом -->
                 <div class="space-y-2 overflow-y-auto pr-1 flex-1 min-h-0">
                   ${cartItemsHtml}
                 </div>
@@ -804,7 +806,7 @@
                     <span class="text-lg font-black text-brand-peach">${cartTotal} ₽</span>
                   </div>
 
-                  <div class="grid grid-cols-3 gap-2 pb-2">
+                  <div class="grid grid-cols-3 gap-2">
                     <button 
                       onclick="closeConfirmOrderModal()" 
                       class="col-span-1 bg-white border border-brand-brown/20 text-brand-brown font-bold text-xs py-3 rounded-xl transition hover:bg-white/80"
@@ -825,6 +827,7 @@
         }
 
         // Всплывающее окно истории заказов и запроса оплаты гостя
+        // Изменено: Выравнивание сверху (items-start pt-6), макс. высота 72vh с безопасной зоной снизу.
         let guestHistoryModalHtml = '';
         if (state.showGuestHistoryModal) {
           const myOrders = state.orders.filter(o => String(o.table) === String(state.tableNumber));
@@ -858,7 +861,6 @@
                 unpaidSum += order.total; 
               }
 
-              // Проверяем, просил ли уже стол расчет
               if (order.waitingForPay) {
                 isWaitingForPay = true;
               }
@@ -882,14 +884,14 @@
           }
 
           guestHistoryModalHtml = `
-            <div class="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
-              <div class="bg-brand-cream border-2 border-brand-brown p-5 rounded-2xl w-full max-w-sm shadow-2xl relative max-h-[90vh] flex flex-col justify-between">
-                <button onclick="toggleGuestHistoryModal(false)" class="absolute top-4 right-4 text-brand-brown hover:text-brand-dark">
+            <div class="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-50 flex items-start justify-center p-4 pb-24 overflow-y-auto animate-fade-in">
+              <div class="bg-brand-cream border-2 border-brand-brown p-5 rounded-2xl w-full max-w-sm shadow-2xl relative max-h-[72vh] flex flex-col justify-between my-4">
+                <button onclick="toggleGuestHistoryModal(false)" class="absolute top-4 right-4 text-brand-brown hover:text-brand-dark z-10">
                   <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
                 
                 <div class="flex-1 flex flex-col min-h-0">
-                  <div class="text-center pb-3 border-b border-brand-brown/10 mb-3 flex-shrink-0">
+                  <div class="text-center pb-3 border-b border-brand-brown/10 mb-2 flex-shrink-0">
                     <i data-lucide="receipt" class="w-8 h-8 text-brand-peach mx-auto mb-1"></i>
                     <h3 class="text-md font-bold text-brand-dark uppercase">Счет стола</h3>
                     <p class="text-xs text-brand-brown">Стол №${state.tableNumber}</p>
@@ -901,7 +903,7 @@
                   </div>
                 </div>
 
-                <div class="pt-3 border-t border-brand-brown/10 mt-3 flex-shrink-0 space-y-3">
+                <div class="pt-3 border-t border-brand-brown/10 mt-2 flex-shrink-0 space-y-3">
                   <div class="flex justify-between items-center">
                     <span class="text-xs font-bold text-brand-brown uppercase">Итого неоплачено:</span>
                     <span class="text-base font-black text-brand-peach">${unpaidSum} ₽</span>
@@ -1113,7 +1115,7 @@
                   <i data-lucide="glass-water" class="w-8 h-8 text-brand-brown/40"></i>
                 </div>
                 <h3 class="text-sm font-bold text-brand-dark">Нет неоплаченных</h3>
-                <p class="text-xs text-brand-brown/80 mt-1">Здесь будут отображаться активные неоплаченные столы.</p>
+                <p class="text-xs text-brand-brown/80 mt-1">Здесь будут отображаться active-неоплаченные столы.</p>
               </div>
             `;
           } else {
@@ -1252,10 +1254,11 @@
           }
         }
 
+        // Модальное окно административного чека
+        // Изменено: Выравнивание сверху (items-start pt-6), макс. высота 72vh с безопасной зоной снизу.
         const billModalHtml = state.selectedBillOrder ? `
-          <div class="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
-            <!-- Установлено ограничение max-h-[90vh] и flex-col для адаптивного скроллинга -->
-            <div class="bg-white border-2 border-brand-brown p-5 rounded-2xl w-full max-w-sm shadow-2xl relative max-h-[90vh] flex flex-col justify-between">
+          <div class="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-50 flex items-start justify-center p-4 pb-24 overflow-y-auto animate-fade-in">
+            <div class="bg-white border-2 border-brand-brown p-5 rounded-2xl w-full max-w-sm shadow-2xl relative max-h-[72vh] flex flex-col justify-between my-4">
               <button onclick="closeBillModal()" class="absolute top-4 right-4 text-brand-brown hover:text-brand-dark z-10">
                 <i data-lucide="x" class="w-5 h-5"></i>
               </button>
