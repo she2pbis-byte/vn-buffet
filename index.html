@@ -154,7 +154,6 @@
     window.switchAdminTab = switchAdminTab;
     
     // Глобальные функции для управления остатками (Inventory)
-    window.updateStockValue = updateStockValue;
     window.setStockZero = setStockZero;
     window.handleManualStockInput = handleManualStockInput;
 
@@ -301,25 +300,6 @@
       });
     }
 
-    // --- Управление остатками сотрудниками ---
-    async function updateStockValue(itemId, relativeChange) {
-      if (!state.user) return;
-      const currentStock = state.inventory[itemId] !== undefined ? state.inventory[itemId] : DEFAULT_STOCK;
-      let newStock = Math.max(0, currentStock + relativeChange);
-      
-      // Ограничение трехзначным числом (макс 999)
-      if (newStock > 999) newStock = 999;
-
-      try {
-        const itemDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'inventory', itemId);
-        await setDoc(itemDocRef, { stock: newStock }, { merge: true });
-        showNotification('Остаток успешно изменен', 'success');
-      } catch (error) {
-        console.error("Не удалось обновить остаток товара:", error);
-        showNotification('Ошибка обновления остатка', 'error');
-      }
-    }
-
     // Обработка ручного ввода числа в инпут
     async function handleManualStockInput(itemId, value) {
       if (!state.user) return;
@@ -404,6 +384,7 @@
       render();
     }
 
+    // Очистка корзины
     function clearCart() {
       state.cart = {};
       state.showConfirmOrderModal = false;
@@ -420,7 +401,7 @@
       return null;
     }
 
-    // Итоговая сумма
+    // Итоговая сумма в корзине
     function getCartTotal() {
       return Object.entries(state.cart).reduce((total, [itemId, count]) => {
         const item = findMenuItem(itemId);
@@ -1376,7 +1357,7 @@
           }
         }
 
-        // Вкладка "Управление остатками" (Без плашки и с ручным вводом!)
+        // Вкладка "Управление остатками" (Только ручной ввод и стоп-лист)
         else if (state.adminTab === 'inventory') {
           let inventoryListHtml = '';
 
@@ -1387,15 +1368,15 @@
                 const isZero = stock <= 0;
 
                 return `
-                  <div class="p-3 bg-brand-cream/10 rounded-xl border border-brand-brown/5 flex flex-col gap-2">
-                    <div class="flex justify-between items-center">
-                      <div class="flex-1">
-                        <h4 class="text-xs font-bold text-brand-dark">${item.name}</h4>
-                        <span class="text-[10px] text-brand-peach font-bold">${item.price} ₽</span>
-                      </div>
-                      
-                      <!-- Ручной ввод остатка (макс 3 цифры) -->
-                      <div class="flex items-center gap-1">
+                  <div class="p-3 bg-brand-cream/10 rounded-xl border border-brand-brown/5 flex items-center justify-between gap-2">
+                    <div class="flex-1 pr-1.5">
+                      <h4 class="text-xs font-bold text-brand-dark leading-tight">${item.name}</h4>
+                      <span class="text-[10px] text-brand-peach font-bold">${item.price} ₽</span>
+                    </div>
+                    
+                    <!-- Управление остатком: ручной инпут + кнопка сброса (стоп-лист) -->
+                    <div class="flex items-center gap-1.5 flex-shrink-0">
+                      <div class="flex items-center bg-white border border-brand-brown/20 rounded-lg px-1.5 py-1 gap-1 shadow-sm">
                         <span class="text-[10px] text-brand-brown/60 font-medium">Остаток:</span>
                         <input 
                           type="text" 
@@ -1405,36 +1386,19 @@
                           value="${stock}"
                           onblur="handleManualStockInput('${item.id}', this.value)"
                           onkeydown="if(event.key === 'Enter') { handleManualStockInput('${item.id}', this.value); this.blur(); }"
-                          class="w-12 h-7 text-center rounded bg-white border border-brand-brown/20 focus:ring-1 focus:ring-brand-peach focus:outline-none text-xs font-black text-brand-dark"
+                          class="w-12 h-7 text-center rounded bg-brand-cream/30 border border-brand-brown/10 focus:ring-1 focus:ring-brand-peach focus:outline-none text-xs font-black text-brand-dark"
                           title="Редактировать вручную"
                         >
                         <span class="text-[10px] text-brand-dark font-semibold">шт</span>
                       </div>
-                    </div>
 
-                    <div class="flex gap-1.5 items-center justify-between mt-1 pt-1.5 border-t border-brand-brown/5">
-                      <!-- Кнопки тонкой пошаговой регулировки -->
-                      <div class="flex items-center bg-white border border-brand-brown/15 rounded-lg px-1 py-0.5 gap-2 shadow-sm">
-                        <button onclick="updateStockValue('${item.id}', -1)" class="w-5 h-5 rounded bg-brand-cream/40 flex items-center justify-center text-[11px] text-brand-dark font-black hover:bg-brand-peach/10 transition">-1</button>
-                        <span class="text-xs font-black text-brand-dark w-4 text-center">${stock}</span>
-                        <button onclick="updateStockValue('${item.id}', 1)" class="w-5 h-5 rounded bg-brand-cream/40 flex items-center justify-center text-[11px] text-brand-dark font-black hover:bg-brand-peach/10 transition">+1</button>
-                      </div>
-
-                      <!-- Кнопки быстрого макро-изменения -->
-                      <div class="flex gap-1">
-                        <button 
-                          onclick="updateStockValue('${item.id}', 10)" 
-                          class="bg-brand-peach/20 hover:bg-brand-peach text-brand-brown hover:text-white px-2 py-1 rounded-lg text-[9px] font-black transition"
-                        >
-                          +10 шт
-                        </button>
-                        <button 
-                          onclick="setStockZero('${item.id}')" 
-                          class="bg-red-50 hover:bg-red-600 text-red-600 hover:text-white px-2 py-1 rounded-lg text-[9px] font-bold border border-red-100 hover:border-red-600 transition"
-                        >
-                          Стоп-лист
-                        </button>
-                      </div>
+                      <button 
+                        onclick="setStockZero('${item.id}')" 
+                        class="bg-red-50 hover:bg-red-600 text-red-600 hover:text-white px-2.5 h-9 rounded-lg text-[10px] font-bold border border-red-100 hover:border-red-600 transition flex items-center justify-center gap-1"
+                        title="Добавить в стоп-лист (0 шт)"
+                      >
+                        <i data-lucide="slash" class="w-3.5 h-3.5"></i> Стоп
+                      </button>
                     </div>
                   </div>
                 `;
