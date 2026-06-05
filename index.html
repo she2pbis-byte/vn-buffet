@@ -153,9 +153,10 @@
     window.requestBillPayment = requestBillPayment;
     window.switchAdminTab = switchAdminTab;
     
-    // Новые глобальные функции для управления остатками (Inventory)
+    // Глобальные функции для управления остатками (Inventory)
     window.updateStockValue = updateStockValue;
     window.setStockZero = setStockZero;
+    window.handleManualStockInput = handleManualStockInput;
 
     // --- Загрузка и инициализация данных ---
     async function initApp() {
@@ -304,7 +305,10 @@
     async function updateStockValue(itemId, relativeChange) {
       if (!state.user) return;
       const currentStock = state.inventory[itemId] !== undefined ? state.inventory[itemId] : DEFAULT_STOCK;
-      const newStock = Math.max(0, currentStock + relativeChange);
+      let newStock = Math.max(0, currentStock + relativeChange);
+      
+      // Ограничение трехзначным числом (макс 999)
+      if (newStock > 999) newStock = 999;
 
       try {
         const itemDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'inventory', itemId);
@@ -312,6 +316,30 @@
         showNotification('Остаток успешно изменен', 'success');
       } catch (error) {
         console.error("Не удалось обновить остаток товара:", error);
+        showNotification('Ошибка обновления остатка', 'error');
+      }
+    }
+
+    // Обработка ручного ввода числа в инпут
+    async function handleManualStockInput(itemId, value) {
+      if (!state.user) return;
+      
+      // Оставляем только цифры, ограничиваем длину в 3 символа
+      let parsed = parseInt(value.replace(/\D/g, ''), 10);
+      
+      if (isNaN(parsed) || parsed < 0) {
+        parsed = 0;
+      }
+      if (parsed > 999) {
+        parsed = 999;
+      }
+
+      try {
+        const itemDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'inventory', itemId);
+        await setDoc(itemDocRef, { stock: parsed }, { merge: true });
+        showNotification(`Остаток установлен: ${parsed} шт.`, 'success');
+      } catch (error) {
+        console.error("Ошибка записи ручного ввода остатка:", error);
         showNotification('Ошибка обновления остатка', 'error');
       }
     }
@@ -400,6 +428,7 @@
       }, 0);
     }
 
+    // Число позиций в корзине
     function getCartCount() {
       return Object.values(state.cart).reduce((a, b) => a + b, 0);
     }
@@ -476,7 +505,7 @@
         return;
       }
 
-      // Дополнительная валидация: проверяем, что все выбранные товары всё еще есть на складе
+      // Дополнительная проверка остатков перед списанием
       for (const [itemId, count] of Object.entries(state.cart)) {
         const currentStock = state.inventory[itemId] !== undefined ? state.inventory[itemId] : DEFAULT_STOCK;
         if (count > currentStock) {
@@ -1347,7 +1376,7 @@
           }
         }
 
-        // Вкладка "Управление остатками" (Новый функционал!)
+        // Вкладка "Управление остатками" (Без плашки и с ручным вводом!)
         else if (state.adminTab === 'inventory') {
           let inventoryListHtml = '';
 
@@ -1359,37 +1388,49 @@
 
                 return `
                   <div class="p-3 bg-brand-cream/10 rounded-xl border border-brand-brown/5 flex flex-col gap-2">
-                    <div class="flex justify-between items-start">
+                    <div class="flex justify-between items-center">
                       <div class="flex-1">
                         <h4 class="text-xs font-bold text-brand-dark">${item.name}</h4>
                         <span class="text-[10px] text-brand-peach font-bold">${item.price} ₽</span>
                       </div>
-                      <div class="text-right">
-                        <span class="px-2.5 py-1 rounded-full text-xs font-extrabold ${isZero ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'}">
-                          Остаток: ${stock} шт
-                        </span>
+                      
+                      <!-- Ручной ввод остатка (макс 3 цифры) -->
+                      <div class="flex items-center gap-1">
+                        <span class="text-[10px] text-brand-brown/60 font-medium">Остаток:</span>
+                        <input 
+                          type="text" 
+                          pattern="[0-9]*"
+                          inputmode="numeric"
+                          maxlength="3"
+                          value="${stock}"
+                          onblur="handleManualStockInput('${item.id}', this.value)"
+                          onkeydown="if(event.key === 'Enter') { handleManualStockInput('${item.id}', this.value); this.blur(); }"
+                          class="w-12 h-7 text-center rounded bg-white border border-brand-brown/20 focus:ring-1 focus:ring-brand-peach focus:outline-none text-xs font-black text-brand-dark"
+                          title="Редактировать вручную"
+                        >
+                        <span class="text-[10px] text-brand-dark font-semibold">шт</span>
                       </div>
                     </div>
 
-                    <div class="flex gap-1.5 items-center justify-between mt-1">
-                      <!-- Шаг тонкой настройки -->
-                      <div class="flex items-center bg-white border border-brand-brown/20 rounded-lg px-1.5 py-1 gap-2.5 shadow-sm">
-                        <button onclick="updateStockValue('${item.id}', -1)" class="w-6 h-6 rounded bg-brand-cream/40 flex items-center justify-center text-brand-dark font-black hover:bg-brand-peach/10 transition">-1</button>
-                        <span class="text-xs font-black text-brand-dark w-5 text-center">${stock}</span>
-                        <button onclick="updateStockValue('${item.id}', 1)" class="w-6 h-6 rounded bg-brand-cream/40 flex items-center justify-center text-brand-dark font-black hover:bg-brand-peach/10 transition">+1</button>
+                    <div class="flex gap-1.5 items-center justify-between mt-1 pt-1.5 border-t border-brand-brown/5">
+                      <!-- Кнопки тонкой пошаговой регулировки -->
+                      <div class="flex items-center bg-white border border-brand-brown/15 rounded-lg px-1 py-0.5 gap-2 shadow-sm">
+                        <button onclick="updateStockValue('${item.id}', -1)" class="w-5 h-5 rounded bg-brand-cream/40 flex items-center justify-center text-[11px] text-brand-dark font-black hover:bg-brand-peach/10 transition">-1</button>
+                        <span class="text-xs font-black text-brand-dark w-4 text-center">${stock}</span>
+                        <button onclick="updateStockValue('${item.id}', 1)" class="w-5 h-5 rounded bg-brand-cream/40 flex items-center justify-center text-[11px] text-brand-dark font-black hover:bg-brand-peach/10 transition">+1</button>
                       </div>
 
-                      <!-- Горячие кнопки больших изменений -->
+                      <!-- Кнопки быстрого макро-изменения -->
                       <div class="flex gap-1">
                         <button 
                           onclick="updateStockValue('${item.id}', 10)" 
-                          class="bg-brand-peach/20 hover:bg-brand-peach text-brand-brown hover:text-white px-2 py-1.5 rounded-lg text-[10px] font-black transition"
+                          class="bg-brand-peach/20 hover:bg-brand-peach text-brand-brown hover:text-white px-2 py-1 rounded-lg text-[9px] font-black transition"
                         >
                           +10 шт
                         </button>
                         <button 
                           onclick="setStockZero('${item.id}')" 
-                          class="bg-red-50 hover:bg-red-600 text-red-600 hover:text-white px-2 py-1.5 rounded-lg text-[10px] font-bold border border-red-100 hover:border-red-600 transition"
+                          class="bg-red-50 hover:bg-red-600 text-red-600 hover:text-white px-2 py-1 rounded-lg text-[9px] font-bold border border-red-100 hover:border-red-600 transition"
                         >
                           Стоп-лист
                         </button>
@@ -1400,7 +1441,7 @@
               }).join('');
 
               return `
-                <div class="bg-white p-4 rounded-2xl border border-brand-brown/10 shadow-sm space-y-3">
+                <div class="bg-white p-4 rounded-2xl border border-brand-brown/10 shadow-sm space-y-3 animate-fade-in">
                   <h3 class="text-xs font-black text-brand-brown uppercase tracking-wider border-b border-brand-cream pb-1.5 flex items-center gap-1.5">
                     <i data-lucide="tag" class="w-3.5 h-3.5 text-brand-peach"></i>
                     ${category.title}
@@ -1415,15 +1456,7 @@
 
           ordersHtml = `
             <div class="space-y-4">
-              <div class="bg-brand-brown text-brand-cream p-4 rounded-2xl border border-brand-peach/30 shadow-md">
-                <h3 class="text-xs font-black uppercase flex items-center gap-1.5"><i data-lucide="info" class="w-4 h-4"></i> Складской учет</h3>
-                <p class="text-[10px] text-brand-cream/80 mt-1 leading-normal">
-                  Здесь вы управляете остатками товаров. Изменения мгновенно влияют на возможность оформления заказов гостями. При отправке заказа гостем остатки списываются автоматически.
-                </p>
-              </div>
-              <div class="space-y-4">
-                ${inventoryListHtml}
-              </div>
+              ${inventoryListHtml}
             </div>
           `;
         }
