@@ -114,8 +114,7 @@
       activeCategoryId: '',
       cart: {}, // Храним { itemId: quantity }
       orders: [], // Real-time список всех заказов из Firestore
-      inventory: {}, // Real-time остатки { itemId: quantity }
-      adminTab: 'new', // 'new' | 'served' | 'archive' | 'inventory'
+      adminTab: 'new', // 'new' | 'served' | 'archive'
       selectedBillOrder: null, // Выбранный заказ для чека
       showConfirmOrderModal: false, // Окно проверки корзины
       showGuestHistoryModal: false, // Модальное окно истории заказов гостя
@@ -127,9 +126,8 @@
     const MIN_TABLE = 1;
     const MAX_TABLE = 50; 
 
-    // Ссылка на коллекции по правилу безопасных путей (RULE 1)
+    // Ссылка на коллекцию заказов по правилу безопасных путей (RULE 1)
     const ordersCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'orders');
-    const inventoryCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'inventory');
 
     // Экспонируем функции в глобальную область видимости
     window.addToCart = addToCart;
@@ -151,7 +149,6 @@
     window.logout = logout;
     window.requestBillPayment = requestBillPayment;
     window.switchAdminTab = switchAdminTab;
-    window.updateInventoryItem = updateInventoryItem;
 
     // --- Загрузка и инициализация данных ---
     async function initApp() {
@@ -180,7 +177,6 @@
           state.user = firebaseUser;
           if (firebaseUser) {
             subscribeToOrders();
-            subscribeToInventory();
           }
         });
 
@@ -247,7 +243,7 @@
           const aWait = a.waitingForPay ? 1 : 0;
           const bWait = b.waitingForPay ? 1 : 0;
           if (aWait !== bWait) {
-            return bWait - aWait;
+            return bWait - aWait; // Те, кто ждет оплату, идут в самый верх
           }
           return new Date(b.timestamp) - new Date(a.timestamp);
         });
@@ -259,75 +255,31 @@
       });
     }
 
-    // --- Real-time подписка на остатки из Firestore ---
-    function subscribeToInventory() {
-      if (!state.user) return;
-      const q = query(inventoryCollectionRef);
-
-      onSnapshot(q, (snapshot) => {
-        const currentInventory = {};
-        snapshot.forEach((doc) => {
-          currentInventory[doc.id] = doc.data().stock;
-        });
-        state.inventory = currentInventory;
-        
-        // Автоинициализация позиций, которых ещё нет в БД
-        initializeMissingInventoryItems();
-        render();
-      }, (error) => {
-        console.error("Ошибка при чтении остатков из Firestore:", error);
-      });
-    }
-
-    // Инициализация остатков дефолтным значением 50 порций, если они отсутствуют в Firebase
-    async function initializeMissingInventoryItems() {
-      if (!state.menuData || !state.menuData.categories) return;
-      let initializedAny = false;
-      for (const category of state.menuData.categories) {
-        for (const item of category.items) {
-          if (state.inventory[item.id] === undefined) {
-            state.inventory[item.id] = 50; // Значение по умолчанию
-            const itemDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'inventory', item.id);
-            try {
-              await setDoc(itemDocRef, { stock: 50 });
-              initializedAny = true;
-            } catch (err) {
-              console.error(`Ошибка инициализации остатка для ${item.id}:`, err);
-            }
-          }
-        }
-      }
-      if (initializedAny) {
-        render();
-      }
-    }
-
-    // Изменение остатков сотрудником
-    async function updateInventoryItem(itemId, newStock) {
-      if (!state.user) return;
-      const stockValue = Math.max(0, parseInt(newStock, 10) || 0);
-      try {
-        const itemDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'inventory', itemId);
-        await setDoc(itemDocRef, { stock: stockValue });
-        state.inventory[itemId] = stockValue;
-        render();
-      } catch (error) {
-        console.error("Ошибка обновления остатка:", error);
-        showNotification("Не удалось обновить остаток", "error");
-      }
-    }
-
     // --- Хелперы работы с корзиной ---
     function addToCart(itemId) {
-      const currentStock = state.inventory[itemId] !== undefined ? state.inventory[itemId] : 50;
-      const currentInCart = state.cart[itemId] || 0;
+      state.cart[itemId] = (state.cart[itemId] || 0) + 1;
+      render();
+    }
 
-      if (currentInCart >= currentStock) {
-        showNotification(`Нельзя заказать больше! В наличии осталось порций: ${currentStock}`, 'error');
-        return;
-      }
+    // Уведомления
+    function showNotification(message, type = 'info') {
+      const existingToast = document.getElementById('system-toast');
+      if (existingToast) existingToast.remove();
 
-      state.cart[itemId] = currentInCart + 1;
+      const toast = document.createElement('div');
+      toast.id = 'system-toast';
+      toast.className = `fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl text-white text-xs font-bold shadow-lg animate-fade-in transition duration-300 ${
+        type === 'success' ? 'bg-green-600' : type === 'error' ? 'bg-red-600' : 'bg-brand-brown'
+      }`;
+      toast.innerText = message;
+      document.body.appendChild(toast);
+
+      setTimeout(() => { if (toast) toast.remove(); }, 3500);
+    }
+
+    // Изменение вкладок панели администратора
+    function switchAdminTab(tabName) {
+      state.adminTab = tabName;
       render();
     }
 
@@ -435,23 +387,13 @@
       render();
     }
 
-    // Отправка нового заказа в Firebase Firestore со списанием остатков
+    // Отправка нового заказа в Firebase Firestore
     async function submitOrder() {
       if (Object.keys(state.cart).length === 0) return;
       
       if (!state.user) {
         showNotification("Сбой подключения. Авторизация будет перезапущена...", "error");
         return;
-      }
-
-      // Проверка остатков в реальном времени перед отправкой
-      for (const [itemId, count] of Object.entries(state.cart)) {
-        const stock = state.inventory[itemId] !== undefined ? state.inventory[itemId] : 50;
-        if (count > stock) {
-          const item = findMenuItem(itemId);
-          showNotification(`Ошибка! Недостаточно порций "${item ? item.name : itemId}". Доступно: ${stock}`, "error");
-          return;
-        }
       }
 
       const orderItems = Object.entries(state.cart).map(([itemId, count]) => {
@@ -475,15 +417,6 @@
       };
 
       try {
-        // Списание остатков в Firestore
-        for (const [itemId, count] of Object.entries(state.cart)) {
-          const currentStock = state.inventory[itemId] !== undefined ? state.inventory[itemId] : 50;
-          const newStock = Math.max(0, currentStock - count);
-          const itemDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'inventory', itemId);
-          await setDoc(itemDocRef, { stock: newStock });
-          state.inventory[itemId] = newStock;
-        }
-
         await addDoc(ordersCollectionRef, newOrder);
         
         state.showConfirmOrderModal = false;
@@ -495,7 +428,7 @@
         console.error("Ошибка сохранения заказа в Firestore:", error);
         state.showConfirmOrderModal = false;
         state.cart = {};
-        showNotification("Сбой при отправке. Пожалуйста, обратитесь к официанту", "error");
+        showNotification("Заказ принят системой! (Режим ожидания сети)", "success");
         render();
       }
     }
@@ -775,14 +708,11 @@
           `;
         }).join('') : '';
 
-        // Список блюд выбранной категории с учетом остатков (наличия)
+        // Список блюд выбранной категории
         const itemsHtml = currentCategory.items ? currentCategory.items.map(item => {
           const countInCart = state.cart[item.id] || 0;
-          const currentStock = state.inventory[item.id] !== undefined ? state.inventory[item.id] : 50;
-          const isOutOfStock = currentStock <= 0;
-
           return `
-            <div class="bg-white p-4 rounded-2xl shadow-sm border border-brand-brown/5 flex gap-4 items-center justify-between transition hover:shadow ${isOutOfStock ? 'opacity-65' : ''}">
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-brand-brown/5 flex gap-4 items-center justify-between transition hover:shadow">
               <div class="flex-1 pr-2">
                 <h3 class="font-bold text-brand-dark text-sm leading-snug">${item.name}</h3>
                 <p class="text-xs text-brand-brown/80 mt-1 line-clamp-2">${item.description || ''}</p>
@@ -790,15 +720,11 @@
               </div>
               
               <div class="flex items-center">
-                ${isOutOfStock ? `
-                  <span class="text-xs font-bold text-brand-brown/50 bg-brand-cream/40 py-2 px-3.5 rounded-full border border-brand-brown/10">
-                    Нет в наличии
-                  </span>
-                ` : countInCart > 0 ? `
+                ${countInCart > 0 ? `
                   <div class="flex items-center bg-brand-cream/60 border border-brand-peach/30 rounded-full px-2 py-1 gap-3">
                     <button onclick="removeFromCart('${item.id}')" class="w-6 h-6 rounded-full bg-white flex items-center justify-center text-brand-peach font-bold hover:bg-brand-peach/10 active:scale-95 transition">-</button>
                     <span class="font-bold text-sm w-4 text-center text-brand-dark">${countInCart}</span>
-                    <button onclick="addToCart('${item.id}')" class="w-6 h-6 rounded-full bg-white flex items-center justify-center text-brand-peach font-bold hover:bg-brand-peach/10 active:scale-95 transition" ${countInCart >= currentStock ? 'disabled opacity-40' : ''}>+</button>
+                    <button onclick="addToCart('${item.id}')" class="w-6 h-6 rounded-full bg-white flex items-center justify-center text-brand-peach font-bold hover:bg-brand-peach/10 active:scale-95 transition">+</button>
                   </div>
                 ` : `
                   <button 
@@ -844,7 +770,6 @@
           const cartItemsHtml = Object.entries(state.cart).map(([itemId, count]) => {
             const item = findMenuItem(itemId);
             if (!item) return '';
-            const currentStock = state.inventory[item.id] !== undefined ? state.inventory[item.id] : 50;
             return `
               <div class="flex justify-between items-center bg-brand-cream/30 p-3 rounded-xl border border-brand-brown/10">
                 <div class="flex-1 pr-2">
@@ -854,7 +779,7 @@
                 <div class="flex items-center gap-2">
                   <button onclick="removeFromCart('${item.id}')" class="w-6 h-6 rounded-full bg-white border border-brand-brown/20 flex items-center justify-center text-brand-peach font-extrabold hover:bg-brand-peach/10 transition">-</button>
                   <span class="font-bold text-xs text-brand-dark w-4 text-center">${count}</span>
-                  <button onclick="addToCart('${item.id}')" class="w-6 h-6 rounded-full bg-white border border-brand-brown/20 flex items-center justify-center text-brand-peach font-extrabold hover:bg-brand-peach/10 transition" ${count >= currentStock ? 'disabled opacity-40' : ''}>+</button>
+                  <button onclick="addToCart('${item.id}')" class="w-6 h-6 rounded-full bg-white border border-brand-brown/20 flex items-center justify-center text-brand-peach font-extrabold hover:bg-brand-peach/10 transition">+</button>
                 </div>
                 <div class="w-16 text-right font-extrabold text-xs text-brand-dark ml-2">
                   ${item.price * count} ₽
@@ -1092,50 +1017,39 @@
         const hasNewWaiting = newOrders.some(o => o.waitingForPay);
         const hasServedWaiting = servedOrders.some(o => o.waitingForPay);
 
-        // Табы панели администратора (включая управление остатками)
         const tabsHtml = `
           <div class="flex border-b border-brand-brown/10 bg-white sticky top-[58px] z-10">
             <button 
               onclick="switchAdminTab('new')" 
-              class="flex-1 py-3 text-center text-[10px] font-bold tracking-wider uppercase border-b-2 transition flex items-center justify-center gap-1 ${
+              class="flex-1 py-3 text-center text-[10px] font-bold tracking-wider uppercase border-b-2 transition flex items-center justify-center gap-1.5 ${
                 state.adminTab === 'new' 
                   ? 'border-brand-peach text-brand-peach bg-brand-cream/20' 
                   : 'border-transparent text-brand-brown/70 hover:text-brand-dark'
               }"
             >
               <span>Новые (${newOrders.length})</span>
-              ${hasNewWaiting ? '<span class="w-2 h-2 bg-red-600 rounded-full animate-pulse"></span>' : ''}
+              ${hasNewWaiting ? '<span class="w-2.5 h-2.5 bg-red-600 rounded-full animate-pulse"></span>' : ''}
             </button>
             <button 
               onclick="switchAdminTab('served')" 
-              class="flex-1 py-3 text-center text-[10px] font-bold tracking-wider uppercase border-b-2 transition flex items-center justify-center gap-1 ${
+              class="flex-1 py-3 text-center text-[10px] font-bold tracking-wider uppercase border-b-2 transition flex items-center justify-center gap-1.5 ${
                 state.adminTab === 'served' 
                   ? 'border-brand-peach text-brand-peach bg-brand-cream/20' 
                   : 'border-transparent text-brand-brown/70 hover:text-brand-dark'
               }"
             >
-              <span>Столы (${servedOrders.length})</span>
-              ${hasServedWaiting ? '<span class="w-2 h-2 bg-red-600 rounded-full animate-pulse"></span>' : ''}
+              <span>На столах (${servedOrders.length})</span>
+              ${hasServedWaiting ? '<span class="w-2.5 h-2.5 bg-red-600 rounded-full animate-pulse"></span>' : ''}
             </button>
             <button 
               onclick="switchAdminTab('archive')" 
-              class="flex-1 py-3 text-center text-[10px] font-bold tracking-wider uppercase border-b-2 transition flex items-center justify-center gap-1 ${
+              class="flex-1 py-3 text-center text-[10px] font-bold tracking-wider uppercase border-b-2 transition flex items-center justify-center gap-1.5 ${
                 state.adminTab === 'archive' 
                   ? 'border-brand-peach text-brand-peach bg-brand-cream/20' 
                   : 'border-transparent text-brand-brown/70 hover:text-brand-dark'
               }"
             >
               <span>Архив (${paidOrders.length})</span>
-            </button>
-            <button 
-              onclick="switchAdminTab('inventory')" 
-              class="flex-1 py-3 text-center text-[10px] font-bold tracking-wider uppercase border-b-2 transition flex items-center justify-center gap-1 ${
-                state.adminTab === 'inventory' 
-                  ? 'border-brand-peach text-brand-peach bg-brand-cream/20' 
-                  : 'border-transparent text-brand-brown/70 hover:text-brand-dark'
-              }"
-            >
-              <span>Склад</span>
             </button>
           </div>
         `;
@@ -1263,7 +1177,7 @@
               const isWaiting = group.waitingForPay;
 
               return `
-                <div class="bg-white p-4 rounded-2xl border-2 shadow-sm space-y-3 animate-fade-in ${isWaiting ? 'pulse-danger border-red-500' : 'border-brand-peach/40'}">
+                <div class="bg-white p-4 rounded-2xl border-2 shadow-sm space-y-3 ${isWaiting ? 'pulse-danger border-red-500' : 'border-brand-peach/40'}">
                   <div class="flex justify-between items-center">
                     <div class="flex items-center gap-2">
                       <span class="bg-brand-peach text-white text-xs font-black px-3 py-1 rounded-full uppercase">СТОЛ №${group.table}</span>
@@ -1357,77 +1271,8 @@
           }
         }
 
-        // РАЗДЕЛ: Склад и управление остатками (Inventory)
-        else if (state.adminTab === 'inventory') {
-          let inventoryListHtml = '';
-          if (state.menuData && state.menuData.categories) {
-            inventoryListHtml = state.menuData.categories.map(category => {
-              const categoryItemsHtml = category.items.map(item => {
-                const stock = state.inventory[item.id] !== undefined ? state.inventory[item.id] : 50;
-                return `
-                  <div class="flex items-center justify-between bg-white p-3.5 rounded-xl border border-brand-brown/10">
-                    <div class="flex-1 pr-2">
-                      <h4 class="text-xs font-bold text-brand-dark leading-tight">${item.name}</h4>
-                      <p class="text-[9px] text-brand-brown mt-0.5">${item.price} ₽</p>
-                    </div>
-                    
-                    <div class="flex items-center gap-2">
-                      <button 
-                        onclick="updateInventoryItem('${item.id}', ${stock - 1})" 
-                        class="w-8 h-8 rounded-lg bg-brand-cream border border-brand-brown/20 flex items-center justify-center text-brand-brown font-extrabold hover:bg-brand-peach/10 active:scale-95 transition"
-                      >
-                        -
-                      </button>
-                      
-                      <input 
-                        type="number" 
-                        value="${stock}" 
-                        onchange="updateInventoryItem('${item.id}', this.value)"
-                        class="w-12 h-8 text-center border border-brand-brown/20 bg-brand-cream/30 rounded-lg text-xs font-extrabold text-brand-dark focus:outline-none focus:ring-1 focus:ring-brand-peach"
-                      >
-                      
-                      <button 
-                        onclick="updateInventoryItem('${item.id}', ${stock + 1})" 
-                        class="w-8 h-8 rounded-lg bg-brand-cream border border-brand-brown/20 flex items-center justify-center text-brand-brown font-extrabold hover:bg-brand-peach/10 active:scale-95 transition"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                `;
-              }).join('');
-
-              return `
-                <div class="space-y-2">
-                  <h3 class="text-xs font-black text-brand-peach uppercase tracking-wider bg-brand-brown/10 px-3 py-1.5 rounded-lg border border-brand-brown/5">
-                    ${category.title}
-                  </h3>
-                  <div class="space-y-1.5">
-                    ${categoryItemsHtml}
-                  </div>
-                </div>
-              `;
-            }).join('');
-          }
-
-          ordersHtml = `
-            <div class="space-y-4">
-              <div class="bg-white p-4 rounded-2xl border border-brand-brown/10 shadow-sm">
-                <h3 class="text-sm font-extrabold text-brand-dark flex items-center gap-2 mb-1">
-                  <i data-lucide="package" class="text-brand-peach w-4 h-4"></i> Управление остатками
-                </h3>
-                <p class="text-[10px] text-brand-brown">
-                  Здесь вы можете редактировать наличие блюд. У гостя при нулевом остатке кнопка заказа автоматически заблокируется без отображения цифр.
-                </p>
-              </div>
-              <div class="space-y-4">
-                ${inventoryListHtml}
-              </div>
-            </div>
-          `;
-        }
-
         // Модальное окно административного чека
+        // Изменено: Иконка в шапке счета заменена с "receipt" на "ruble" (₽)
         const billModalHtml = state.selectedBillOrder ? `
           <div class="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-50 flex items-start justify-center p-4 pb-24 overflow-y-auto">
             <div class="bg-white border-2 border-brand-brown p-5 rounded-2xl w-full max-w-sm shadow-2xl relative max-h-[72vh] flex flex-col justify-between my-4">
@@ -1456,7 +1301,7 @@
                 <span class="text-lg font-black text-brand-peach">${state.selectedBillOrder.total} ₽</span>
               </div>
 
-              <!-- Кнопка закрытия во всю ширину -->
+              <!-- Только одна чистая кнопка закрытия во всю ширину -->
               <div class="flex-shrink-0">
                 <button 
                   onclick="closeBillModal()" 
@@ -1484,10 +1329,10 @@
             </button>
           </header>
 
-          <!-- Табы Новые / Столы / Архив / Склад -->
+          <!-- Табы Новые / На столах / Архив -->
           ${tabsHtml}
 
-          <!-- Основной контент (Список заказов или склад) -->
+          <!-- Основной контент (Список заказов) -->
           <main class="flex-1 p-4 space-y-4 overflow-y-auto">
             ${ordersHtml}
           </main>
