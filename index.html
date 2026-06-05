@@ -216,7 +216,7 @@
       } catch (error) {
         console.error(error);
         document.getElementById('app').innerHTML = `
-          <div class="p-8 text-center flex flex-col justify-center items-center min-h-screen">
+          <div class="p-8 text-center flex flex-col justify-center items-center min-h-screen animate-fade-in">
             <i data-lucide="alert-triangle" class="w-16 h-16 text-red-500 mb-4"></i>
             <h2 class="text-xl font-bold text-brand-dark mb-2">Ошибка подключения</h2>
             <p class="text-brand-brown text-sm mb-6">Убедитесь, что файл <strong>menu.json</strong> лежит в той же папке, что и index.html.</p>
@@ -675,7 +675,8 @@
       // СЦЕНАРИЙ 2: ЭКРАН МЕНЮ ДЛЯ ГОСТЯ (GUEST MENU)
       // ----------------------------------------------------
       else if (state.screen === 'guest_menu') {
-        container.className = "max-w-md mx-auto bg-brand-cream min-h-screen relative flex flex-col justify-between shadow-2xl animate-fade-in";
+        // Убрали "animate-fade-in" с основного экрана для устранения мигания при добавлении в корзину
+        container.className = "max-w-md mx-auto bg-brand-cream min-h-screen relative flex flex-col justify-between shadow-2xl";
         
         // Поиск активной категории
         const currentCategory = state.menuData && state.menuData.categories
@@ -734,7 +735,7 @@
         const cartCount = getCartCount();
         const cartTotal = getCartTotal();
         const bottomCartHtml = cartCount > 0 ? `
-          <div class="sticky bottom-0 left-0 right-0 p-4 bg-white/95 border-t border-brand-brown/10 backdrop-blur-md shadow-lg animate-fade-in z-20">
+          <div class="sticky bottom-0 left-0 right-0 p-4 bg-white/95 border-t border-brand-brown/10 backdrop-blur-md shadow-lg z-20">
             <div class="flex justify-between items-center mb-3">
               <div>
                 <span class="text-xs text-brand-brown font-medium">Выбрано: <strong class="text-brand-dark">${cartCount} поз.</strong></span>
@@ -757,13 +758,14 @@
 
         // Всплывающее интерактивное окно проверки и редактирования заказа перед отправкой
         // Изменено: Выравнивание сверху (items-start pt-6) с ограничением высоты до 72vh для полной видимости кнопок внизу.
+        // Убрали "animate-fade-in" со внутренних списков для устранения мигания при регулировке количества.
         let confirmOrderModalHtml = '';
         if (state.showConfirmOrderModal && cartCount > 0) {
           const cartItemsHtml = Object.entries(state.cart).map(([itemId, count]) => {
             const item = findMenuItem(itemId);
             if (!item) return '';
             return `
-              <div class="flex justify-between items-center bg-brand-cream/30 p-3 rounded-xl border border-brand-brown/10 animate-fade-in">
+              <div class="flex justify-between items-center bg-brand-cream/30 p-3 rounded-xl border border-brand-brown/10">
                 <div class="flex-1 pr-2">
                   <h4 class="text-xs font-bold text-brand-dark">${item.name}</h4>
                   <span class="text-[10px] text-brand-brown">${item.price} ₽ / шт.</span>
@@ -781,7 +783,7 @@
           }).join('');
 
           confirmOrderModalHtml = `
-            <div class="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-50 flex items-start justify-center p-4 pb-24 overflow-y-auto animate-fade-in">
+            <div class="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-50 flex items-start justify-center p-4 pb-24 overflow-y-auto">
               <div class="bg-brand-cream border-2 border-brand-brown p-5 rounded-2xl w-full max-w-md shadow-2xl space-y-4 max-h-[72vh] flex flex-col my-4">
                 <div class="flex justify-between items-center border-b border-brand-brown/10 pb-3 flex-shrink-0">
                   <div class="flex items-center gap-2">
@@ -868,7 +870,7 @@
               const itemsSummary = order.items.map(i => `${i.name} x${i.count}`).join(', ');
 
               return `
-                <div class="p-3 bg-white border border-brand-brown/10 rounded-xl space-y-1.5 text-xs animate-fade-in">
+                <div class="p-3 bg-white border border-brand-brown/10 rounded-xl space-y-1.5 text-xs">
                   <div class="flex justify-between items-center">
                     <span class="text-[10px] text-brand-brown font-black">Заказ ${order.id.replace('ord_comb_', '').substring(0, 6)}</span>
                     <span class="text-[10px] text-brand-brown/60">${formattedTime}</span>
@@ -884,7 +886,7 @@
           }
 
           guestHistoryModalHtml = `
-            <div class="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-50 flex items-start justify-center p-4 pb-24 overflow-y-auto animate-fade-in">
+            <div class="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-50 flex items-start justify-center p-4 pb-24 overflow-y-auto">
               <div class="bg-brand-cream border-2 border-brand-brown p-5 rounded-2xl w-full max-w-sm shadow-2xl relative max-h-[72vh] flex flex-col justify-between my-4">
                 <button onclick="toggleGuestHistoryModal(false)" class="absolute top-4 right-4 text-brand-brown hover:text-brand-dark z-10">
                   <i data-lucide="x" class="w-5 h-5"></i>
@@ -1000,7 +1002,8 @@
       // СЦЕНАРИЙ 3: ПАНЕЛЬ АДМИНИСТРАТОРА (ADMIN PANEL)
       // ----------------------------------------------------
       else if (state.screen === 'admin_panel') {
-        container.className = "max-w-md mx-auto bg-brand-cream min-h-screen relative flex flex-col justify-between shadow-2xl animate-fade-in";
+        // Убрали "animate-fade-in" со всей панели администратора
+        container.className = "max-w-md mx-auto bg-brand-cream min-h-screen relative flex flex-col justify-between shadow-2xl";
 
         const newOrders = state.orders.filter(o => o.status === 'new');
         const servedOrders = state.orders.filter(o => o.status === 'served');
@@ -1115,7 +1118,7 @@
                   <i data-lucide="glass-water" class="w-8 h-8 text-brand-brown/40"></i>
                 </div>
                 <h3 class="text-sm font-bold text-brand-dark">Нет неоплаченных</h3>
-                <p class="text-xs text-brand-brown/80 mt-1">Здесь будут отображаться active-неоплаченные столы.</p>
+                <p class="text-xs text-brand-brown/80 mt-1">Здесь будут отображаться активные неоплаченные столы.</p>
               </div>
             `;
           } else {
@@ -1157,7 +1160,7 @@
               const isWaiting = group.waitingForPay;
 
               return `
-                <div class="bg-white p-4 rounded-2xl border-2 shadow-sm space-y-3 animate-fade-in ${isWaiting ? 'pulse-danger border-red-500' : 'border-brand-peach/40'}">
+                <div class="bg-white p-4 rounded-2xl border-2 shadow-sm space-y-3 ${isWaiting ? 'pulse-danger border-red-500' : 'border-brand-peach/40'}">
                   <div class="flex justify-between items-center">
                     <div class="flex items-center gap-2">
                       <span class="bg-brand-peach text-white text-xs font-black px-3 py-1 rounded-full uppercase">СТОЛ №${group.table}</span>
@@ -1217,7 +1220,7 @@
               const isCombined = order.id.startsWith('ord_comb_');
 
               return `
-                <div class="bg-white/80 p-4 rounded-2xl border border-brand-brown/5 shadow-sm space-y-2 opacity-80 animate-fade-in">
+                <div class="bg-white/80 p-4 rounded-2xl border border-brand-brown/5 shadow-sm space-y-2 opacity-80">
                   <div class="flex justify-between items-start text-xs">
                     <div>
                       <span class="bg-brand-brown text-brand-cream text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">Стол №${order.table}</span>
@@ -1256,8 +1259,9 @@
 
         // Модальное окно административного чека
         // Изменено: Выравнивание сверху (items-start pt-6), макс. высота 72vh с безопасной зоной снизу.
+        // Кнопка «Печать чека» полностью удалена. Осталась только кнопка «Закрыть» на всю ширину.
         const billModalHtml = state.selectedBillOrder ? `
-          <div class="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-50 flex items-start justify-center p-4 pb-24 overflow-y-auto animate-fade-in">
+          <div class="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-50 flex items-start justify-center p-4 pb-24 overflow-y-auto">
             <div class="bg-white border-2 border-brand-brown p-5 rounded-2xl w-full max-w-sm shadow-2xl relative max-h-[72vh] flex flex-col justify-between my-4">
               <button onclick="closeBillModal()" class="absolute top-4 right-4 text-brand-brown hover:text-brand-dark z-10">
                 <i data-lucide="x" class="w-5 h-5"></i>
@@ -1284,16 +1288,11 @@
                 <span class="text-lg font-black text-brand-peach">${state.selectedBillOrder.total} ₽</span>
               </div>
 
-              <div class="flex gap-2 flex-shrink-0">
-                <button 
-                  onclick="printBill()" 
-                  class="flex-1 bg-brand-dark hover:bg-brand-brown text-white font-bold py-2.5 rounded-xl transition text-xs flex items-center justify-center gap-1.5"
-                >
-                  <i data-lucide="printer" class="w-4 h-4"></i> Печать чека
-                </button>
+              <!-- Только одна чистая кнопка закрытия во всю ширину -->
+              <div class="flex-shrink-0">
                 <button 
                   onclick="closeBillModal()" 
-                  class="flex-1 bg-brand-peach hover:bg-brand-brown text-white font-bold py-2.5 rounded-xl transition text-xs"
+                  class="w-full bg-brand-peach hover:bg-brand-brown text-white font-bold py-3 rounded-xl transition text-xs uppercase tracking-wider"
                 >
                   Закрыть
                 </button>
