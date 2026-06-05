@@ -238,8 +238,16 @@
           fetchedOrders.push({ id: doc.id, ...doc.data() });
         });
 
-        // Сортируем полученные заказы по времени (сначала новые)
-        fetchedOrders.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        // Сортировка: сначала те, кто ждет оплату (waitingForPay), затем по времени создания (новые вверху)
+        fetchedOrders.sort((a, b) => {
+          const aWait = a.waitingForPay ? 1 : 0;
+          const bWait = b.waitingForPay ? 1 : 0;
+          if (aWait !== bWait) {
+            return bWait - aWait; // Те, кто ждет оплату, идут в самый верх
+          }
+          return new Date(b.timestamp) - new Date(a.timestamp);
+        });
+
         state.orders = fetchedOrders;
         render();
       }, (error) => {
@@ -253,6 +261,7 @@
       render();
     }
 
+    // Уведомления
     function showNotification(message, type = 'info') {
       const existingToast = document.getElementById('system-toast');
       if (existingToast) existingToast.remove();
@@ -675,7 +684,6 @@
       // СЦЕНАРИЙ 2: ЭКРАН МЕНЮ ДЛЯ ГОСТЯ (GUEST MENU)
       // ----------------------------------------------------
       else if (state.screen === 'guest_menu') {
-        // Убрали "animate-fade-in" с основного экрана для устранения мигания при добавлении в корзину
         container.className = "max-w-md mx-auto bg-brand-cream min-h-screen relative flex flex-col justify-between shadow-2xl";
         
         // Поиск активной категории
@@ -757,8 +765,6 @@
         ` : '';
 
         // Всплывающее интерактивное окно проверки и редактирования заказа перед отправкой
-        // Изменено: Выравнивание сверху (items-start pt-6) с ограничением высоты до 72vh для полной видимости кнопок внизу.
-        // Убрали "animate-fade-in" со внутренних списков для устранения мигания при регулировке количества.
         let confirmOrderModalHtml = '';
         if (state.showConfirmOrderModal && cartCount > 0) {
           const cartItemsHtml = Object.entries(state.cart).map(([itemId, count]) => {
@@ -829,7 +835,6 @@
         }
 
         // Всплывающее окно истории заказов и запроса оплаты гостя
-        // Изменено: Выравнивание сверху (items-start pt-6), макс. высота 72vh с безопасной зоной снизу.
         let guestHistoryModalHtml = '';
         if (state.showGuestHistoryModal) {
           const myOrders = state.orders.filter(o => String(o.table) === String(state.tableNumber));
@@ -1002,44 +1007,49 @@
       // СЦЕНАРИЙ 3: ПАНЕЛЬ АДМИНИСТРАТОРА (ADMIN PANEL)
       // ----------------------------------------------------
       else if (state.screen === 'admin_panel') {
-        // Убрали "animate-fade-in" со всей панели администратора
         container.className = "max-w-md mx-auto bg-brand-cream min-h-screen relative flex flex-col justify-between shadow-2xl";
 
         const newOrders = state.orders.filter(o => o.status === 'new');
         const servedOrders = state.orders.filter(o => o.status === 'served');
         const paidOrders = state.orders.filter(o => o.status === 'paid');
 
+        // Поиск заказов, ожидающих оплату (waitingForPay) для индикаторов мигающих красных точек
+        const hasNewWaiting = newOrders.some(o => o.waitingForPay);
+        const hasServedWaiting = servedOrders.some(o => o.waitingForPay);
+
         const tabsHtml = `
           <div class="flex border-b border-brand-brown/10 bg-white sticky top-[58px] z-10">
             <button 
               onclick="switchAdminTab('new')" 
-              class="flex-1 py-3 text-center text-[10px] font-bold tracking-wider uppercase border-b-2 transition ${
+              class="flex-1 py-3 text-center text-[10px] font-bold tracking-wider uppercase border-b-2 transition flex items-center justify-center gap-1.5 ${
                 state.adminTab === 'new' 
                   ? 'border-brand-peach text-brand-peach bg-brand-cream/20' 
                   : 'border-transparent text-brand-brown/70 hover:text-brand-dark'
               }"
             >
-              Новые (${newOrders.length})
+              <span>Новые (${newOrders.length})</span>
+              ${hasNewWaiting ? '<span class="w-2.5 h-2.5 bg-red-600 rounded-full animate-pulse"></span>' : ''}
             </button>
             <button 
               onclick="switchAdminTab('served')" 
-              class="flex-1 py-3 text-center text-[10px] font-bold tracking-wider uppercase border-b-2 transition ${
+              class="flex-1 py-3 text-center text-[10px] font-bold tracking-wider uppercase border-b-2 transition flex items-center justify-center gap-1.5 ${
                 state.adminTab === 'served' 
                   ? 'border-brand-peach text-brand-peach bg-brand-cream/20' 
                   : 'border-transparent text-brand-brown/70 hover:text-brand-dark'
               }"
             >
-              На столах (${servedOrders.length})
+              <span>На столах (${servedOrders.length})</span>
+              ${hasServedWaiting ? '<span class="w-2.5 h-2.5 bg-red-600 rounded-full animate-pulse"></span>' : ''}
             </button>
             <button 
               onclick="switchAdminTab('archive')" 
-              class="flex-1 py-3 text-center text-[10px] font-bold tracking-wider uppercase border-b-2 transition ${
+              class="flex-1 py-3 text-center text-[10px] font-bold tracking-wider uppercase border-b-2 transition flex items-center justify-center gap-1.5 ${
                 state.adminTab === 'archive' 
                   ? 'border-brand-peach text-brand-peach bg-brand-cream/20' 
                   : 'border-transparent text-brand-brown/70 hover:text-brand-dark'
               }"
             >
-              Архив Оплат (${paidOrders.length})
+              <span>Архив (${paidOrders.length})</span>
             </button>
           </div>
         `;
@@ -1149,7 +1159,14 @@
               });
             });
 
-            ordersHtml = Object.values(groupedByTable).map(group => {
+            // Сортировка столов: сначала те, кто запросил расчет
+            const sortedGroupedTables = Object.values(groupedByTable).sort((a, b) => {
+              const aWait = a.waitingForPay ? 1 : 0;
+              const bWait = b.waitingForPay ? 1 : 0;
+              return bWait - aWait;
+            });
+
+            ordersHtml = sortedGroupedTables.map(group => {
               const itemsListHtml = Object.values(group.items).map(item => `
                 <div class="flex justify-between items-center text-xs py-1 border-b border-brand-brown/5">
                   <span class="text-brand-dark font-medium">${item.name} <span class="text-brand-peach font-bold">x${item.count}</span></span>
@@ -1217,15 +1234,12 @@
                 </div>
               `).join('');
 
-              const isCombined = order.id.startsWith('ord_comb_');
-
               return `
                 <div class="bg-white/80 p-4 rounded-2xl border border-brand-brown/5 shadow-sm space-y-2 opacity-80">
                   <div class="flex justify-between items-start text-xs">
                     <div>
                       <span class="bg-brand-brown text-brand-cream text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">Стол №${order.table}</span>
                       <span class="text-[10px] text-brand-brown/50 ml-2">${formattedTime}</span>
-                      ${isCombined ? `<span class="text-[9px] bg-green-100 text-green-700 font-bold px-1.5 py-0.5 ml-2 rounded border border-green-200">Объединенный</span>` : ''}
                     </div>
                     <div class="font-bold text-green-600 flex items-center gap-1"><i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i> Оплачено</div>
                   </div>
@@ -1258,8 +1272,7 @@
         }
 
         // Модальное окно административного чека
-        // Изменено: Выравнивание сверху (items-start pt-6), макс. высота 72vh с безопасной зоной снизу.
-        // Кнопка «Печать чека» полностью удалена. Осталась только кнопка «Закрыть» на всю ширину.
+        // Изменено: Иконка в шапке счета заменена с "receipt" на "ruble" (₽)
         const billModalHtml = state.selectedBillOrder ? `
           <div class="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-50 flex items-start justify-center p-4 pb-24 overflow-y-auto">
             <div class="bg-white border-2 border-brand-brown p-5 rounded-2xl w-full max-w-sm shadow-2xl relative max-h-[72vh] flex flex-col justify-between my-4">
@@ -1268,7 +1281,7 @@
               </button>
               
               <div class="text-center pb-4 border-b border-dashed border-brand-brown/30 flex-shrink-0">
-                <i data-lucide="receipt" class="text-brand-peach mx-auto mb-2 w-8 h-8"></i>
+                <i data-lucide="ruble" class="text-brand-peach mx-auto mb-2 w-8 h-8"></i>
                 <h3 class="text-md font-bold text-brand-dark uppercase">Счет на оплату</h3>
                 <p class="text-xs text-brand-brown font-bold text-sm">Стол №${state.selectedBillOrder.table}</p>
               </div>
