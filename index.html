@@ -283,7 +283,6 @@
         if (state.menuData && state.menuData.categories) {
           state.menuData.categories.forEach(category => {
             category.items.forEach(async (item) => {
-              // Карта списания использует id общего склада (stockLinkId или собственный id)
               const linkId = item.stockLinkId || item.id;
               if (state.inventory[linkId] === undefined) {
                 try {
@@ -446,6 +445,33 @@
       render();
     }
 
+    // Запрос на оплату гостем
+    function requestBillPayment() {
+      if (!state.user || !state.tableNumber) return;
+      
+      const myActiveOrders = state.orders.filter(
+        order => String(order.table) === String(state.tableNumber) && order.status !== 'paid'
+      );
+
+      if (myActiveOrders.length === 0) {
+        showNotification("У вас нет активных неоплаченных заказов", "error");
+        return;
+      }
+
+      try {
+        myActiveOrders.forEach(async (order) => {
+          const orderDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', order.id);
+          await updateDoc(orderDocRef, { waitingForPay: true });
+        });
+        showNotification("Запрос на расчет отправлен. Официант скоро подойдет!", "success");
+        state.showGuestHistoryModal = false;
+        render();
+      } catch (error) {
+        console.error("Ошибка при отправке запроса оплаты:", error);
+        showNotification("Не удалось отправить запрос расчета", "error");
+      }
+    }
+
     function closeConfirmOrderModal() {
       state.showConfirmOrderModal = false;
       render();
@@ -577,33 +603,6 @@
         state.cart = {};
         showNotification("Ошибка отправки заказа.", "error");
         render();
-      }
-    }
-
-    // Послать сигнал «Хочу оплатить»
-    async function requestBillPayment() {
-      if (!state.user || !state.tableNumber) return;
-      
-      const myActiveOrders = state.orders.filter(
-        order => String(order.table) === String(state.tableNumber) && order.status !== 'paid'
-      );
-
-      if (myActiveOrders.length === 0) {
-        showNotification("У вас нет активных неоплаченных заказов", "error");
-        return;
-      }
-
-      try {
-        for (const order of myActiveOrders) {
-          const orderDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', order.id);
-          await updateDoc(orderDocRef, { waitingForPay: true });
-        }
-        showNotification("Запрос на расчет отправлен. Официант скоро подойдет!", "success");
-        state.showGuestHistoryModal = false;
-        render();
-      } catch (error) {
-        console.error("Ошибка при отправке запроса оплаты:", error);
-        showNotification("Не удалось отправить запрос расчета", "error");
       }
     }
 
@@ -1316,7 +1315,7 @@
                     ${itemsListHtml}
                   </div>
 
-                  <!-- Статус "просит счет" отображается строго НАД кнопками принятия мер -->
+                  <!-- Статус "просит счет" -->
                   ${isWaiting ? `
                     <div class="text-center bg-red-50 text-red-600 text-xs font-extrabold py-2 px-3 rounded-xl border border-red-200 animate-pulse flex items-center justify-center gap-1.5">
                       <i data-lucide="credit-card" class="w-4 h-4"></i> ГОСТЬ ПРОСИТ СЧЕТ!
@@ -1415,12 +1414,11 @@
           }
         }
 
-        // Вкладка "Управление остатками" (Понимает связку бокалов/бутылок через порции)
+        // Вкладка "Управление остатками" (Максимально чистый и компактный интерфейс)
         else if (state.adminTab === 'inventory') {
           let inventoryListHtml = '';
 
           if (state.menuData && state.menuData.categories) {
-            // Создаем уникальную карту складов, чтобы не дублировать связанные позиции в списке остатков
             const processedStockIds = new Set();
             const stockItemsList = [];
 
@@ -1431,38 +1429,16 @@
                 if (!processedStockIds.has(stockId)) {
                   processedStockIds.add(stockId);
 
-                  // Собираем все позиции меню, которые питаются от этого склада
-                  const linkedMenuNames = [];
-                  let textUnit = 'порц.'; // По умолчанию порции
-                  let descriptionHelp = '';
-
-                  state.menuData.categories.forEach(c => {
-                    c.items.forEach(i => {
-                      if ((i.stockLinkId || i.id) === stockId) {
-                        linkedMenuNames.push(i.name);
-                        
-                        // Определяем, какое пояснение дать складу на основе portionWeight
-                        if (i.portionWeight === 6) {
-                          descriptionHelp = 'Склад игристого вина (бутылка = 6 порц. по 125 мл)';
-                        } else if (i.portionWeight === 5) {
-                          descriptionHelp = 'Склад тихого вина (бутылка = 5 порц. по 150 мл)';
-                        }
-                      }
-                    });
-                  });
-
                   stockItemsList.push({
                     stockId,
-                    displayName: item.name.replace(' (бокал)', '').replace(' (бутылка)', '').trim(),
-                    linkedNames: linkedMenuNames,
-                    descriptionHelp: descriptionHelp || 'Обычный штучный/порционный склад',
+                    displayName: item.name.replace(', БОКАЛ', '').replace(', ПОРЦИЯ', '').replace(', БУТЫЛКА', '').trim(),
                     categoryTitle: category.title
                   });
                 }
               });
             });
 
-            // Рендерим склады, группируя их по категориям, где они были впервые замечены
+            // Рендерим склады, группируя их по категориям
             const categoriesWithStocks = {};
             stockItemsList.forEach(stock => {
               if (!categoriesWithStocks[stock.categoryTitle]) {
@@ -1474,58 +1450,39 @@
             inventoryListHtml = Object.entries(categoriesWithStocks).map(([catTitle, stocks]) => {
               const itemsRows = stocks.map(stock => {
                 const currentStockPortions = state.inventory[stock.stockId] !== undefined ? state.inventory[stock.stockId] : DEFAULT_STOCK;
-                
-                // Делаем удобную математическую подсказку об остатке в бутылках
-                let bottlesCalculationText = '';
-                if (stock.descriptionHelp.includes('игристого')) {
-                  const fullBottles = Math.floor(currentStockPortions / 6);
-                  const remainingGlasses = currentStockPortions % 6;
-                  bottlesCalculationText = `<div class="text-[10px] text-brand-peach font-bold mt-1">~ ${fullBottles} бут. и ${remainingGlasses} бок.</div>`;
-                } else if (stock.descriptionHelp.includes('тихого')) {
-                  const fullBottles = Math.floor(currentStockPortions / 5);
-                  const remainingGlasses = currentStockPortions % 5;
-                  bottlesCalculationText = `<div class="text-[10px] text-brand-peach font-bold mt-1">~ ${fullBottles} бут. и ${remainingGlasses} бок.</div>`;
-                }
 
                 return `
-                  <div class="p-3 bg-brand-cream/10 rounded-xl border border-brand-brown/5 flex flex-col gap-2">
-                    <div class="flex items-start justify-between gap-2">
-                      <div class="flex-1">
-                        <h4 class="text-xs font-black text-brand-dark leading-tight">${stock.displayName}</h4>
-                        <p class="text-[9px] text-brand-brown/60 mt-1">${stock.descriptionHelp}</p>
-                        ${bottlesCalculationText}
-                      </div>
-                      
-                      <!-- Управление остатками порций -->
-                      <div class="flex items-center gap-1.5 flex-shrink-0">
-                        <div class="flex items-center bg-white border border-brand-brown/20 rounded-lg px-1.5 py-1 gap-1 shadow-sm">
-                          <span class="text-[10px] text-brand-brown/60 font-semibold">Остаток:</span>
-                          <input 
-                            type="text" 
-                            pattern="[0-9]*"
-                            inputmode="numeric"
-                            maxlength="3"
-                            value="${currentStockPortions}"
-                            onblur="handleManualStockInput('${stock.stockId}', this.value)"
-                            onkeydown="if(event.key === 'Enter') { handleManualStockInput('${stock.stockId}', this.value); this.blur(); }"
-                            class="w-11 h-7 text-center rounded bg-brand-cream/30 border border-brand-brown/10 focus:ring-1 focus:ring-brand-peach focus:outline-none text-xs font-black text-brand-dark"
-                            title="Введите число порций на складе"
-                          >
-                          <span class="text-[9px] text-brand-dark font-black">порц.</span>
-                        </div>
-
-                        <button 
-                          onclick="setStockZero('${stock.stockId}')" 
-                          class="bg-red-50 hover:bg-red-600 text-red-600 hover:text-white px-2.5 h-9 rounded-lg text-[10px] font-bold border border-red-100 hover:border-red-600 transition flex items-center justify-center gap-1"
-                          title="Добавить всю позицию в стоп-лист (0 порций)"
-                        >
-                          <i data-lucide="slash" class="w-3.5 h-3.5"></i> Стоп
-                        </button>
-                      </div>
+                  <div class="p-3 bg-brand-cream/10 rounded-xl border border-brand-brown/5 flex items-center justify-between gap-2">
+                    <!-- Только название товара -->
+                    <div class="flex-1 pr-1">
+                      <h4 class="text-xs font-black text-brand-dark leading-tight">${stock.displayName}</h4>
                     </div>
                     
-                    <div class="text-[9px] text-brand-brown/50 border-t border-brand-brown/5 pt-1.5">
-                      Связанные товары: ${stock.linkedNames.join(' | ')}
+                    <!-- Управление остатками порций (Остаток + Поле + Стоп) -->
+                    <div class="flex items-center gap-1.5 flex-shrink-0">
+                      <div class="flex items-center bg-white border border-brand-brown/20 rounded-lg px-2 py-1 gap-1 shadow-sm">
+                        <span class="text-[10px] text-brand-brown/60 font-semibold">Остаток:</span>
+                        <input 
+                          type="text" 
+                          pattern="[0-9]*"
+                          inputmode="numeric"
+                          maxlength="3"
+                          value="${currentStockPortions}"
+                          onblur="handleManualStockInput('${stock.stockId}', this.value)"
+                          onkeydown="if(event.key === 'Enter') { handleManualStockInput('${stock.stockId}', this.value); this.blur(); }"
+                          class="w-10 h-6 text-center rounded bg-brand-cream/30 border border-brand-brown/10 focus:ring-1 focus:ring-brand-peach focus:outline-none text-xs font-black text-brand-dark"
+                          title="Введите число порций на складе"
+                        >
+                        <span class="text-[9px] text-brand-dark font-black">порц.</span>
+                      </div>
+
+                      <button 
+                        onclick="setStockZero('${stock.stockId}')" 
+                        class="bg-red-50 hover:bg-red-600 text-red-600 hover:text-white px-2.5 h-8 rounded-lg text-[10px] font-bold border border-red-100 hover:border-red-600 transition flex items-center justify-center gap-1"
+                        title="Добавить всю позицию в стоп-лист (0 порций)"
+                      >
+                        <i data-lucide="slash" class="w-3 h-3"></i> Стоп
+                      </button>
                     </div>
                   </div>
                 `;
