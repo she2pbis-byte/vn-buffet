@@ -111,7 +111,7 @@
       screen: 'login', // 'login', 'guest_menu', 'admin_panel'
       tableNumber: null,
       menuData: null,
-      inventory: {}, // Реальное количество на складе { itemId: count } из Firestore
+      inventory: {}, // Реальное количество порций на складе { itemId: count } из Firestore
       activeCategoryId: '',
       cart: {}, // Храним { itemId: quantity }
       orders: [], // Real-time список всех заказов из Firestore
@@ -127,7 +127,7 @@
     const ADMIN_PASSWORD = "56165616";
     const MIN_TABLE = 1;
     const MAX_TABLE = 50; 
-    const DEFAULT_STOCK = 15; // Сколько давать товара по умолчанию при первом импорте меню
+    const DEFAULT_STOCK = 30; // По умолчанию даем 30 порций на склад при инициализации новой позиции
 
     // Ссылки на коллекции по правилу безопасных путей (RULE 1)
     const ordersCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'orders');
@@ -279,18 +279,19 @@
 
         state.inventory = stockData;
 
-        // Авто-инициализация: если в базе данных Firestore нет записей для товаров из menu.json,
-        // мы автоматически создадим документы со стартовым остатком DEFAULT_STOCK
+        // Авто-инициализация остатков порций для позиций из menu.json
         if (state.menuData && state.menuData.categories) {
           state.menuData.categories.forEach(category => {
             category.items.forEach(async (item) => {
-              if (state.inventory[item.id] === undefined) {
+              // Карта списания использует id общего склада (stockLinkId или собственный id)
+              const linkId = item.stockLinkId || item.id;
+              if (state.inventory[linkId] === undefined) {
                 try {
-                  const itemDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'inventory', item.id);
+                  const itemDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'inventory', linkId);
                   await setDoc(itemDocRef, { stock: DEFAULT_STOCK });
-                  state.inventory[item.id] = DEFAULT_STOCK;
+                  state.inventory[linkId] = DEFAULT_STOCK;
                 } catch (e) {
-                  console.error("Ошибка при авто-инициализации остатка для:", item.id, e);
+                  console.error("Ошибка при авто-инициализации остатка для:", linkId, e);
                 }
               }
             });
@@ -304,10 +305,9 @@
     }
 
     // Обработка ручного ввода числа в инпут
-    async function handleManualStockInput(itemId, value) {
+    async function handleManualStockInput(stockId, value) {
       if (!state.user) return;
       
-      // Оставляем только цифры, ограничиваем длину в 3 символа
       let parsed = parseInt(value.replace(/\D/g, ''), 10);
       
       if (isNaN(parsed) || parsed < 0) {
@@ -318,60 +318,70 @@
       }
 
       try {
-        const itemDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'inventory', itemId);
+        const itemDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'inventory', stockId);
         await setDoc(itemDocRef, { stock: parsed }, { merge: true });
-        showNotification(`Остаток установлен: ${parsed} шт.`, 'success');
+        showNotification(`Остаток установлен: ${parsed} порц.`, 'success');
       } catch (error) {
         console.error("Ошибка записи ручного ввода остатка:", error);
         showNotification('Ошибка обновления остатка', 'error');
       }
     }
 
-    async function setStockZero(itemId) {
+    async function setStockZero(stockId) {
       if (!state.user) return;
       try {
-        const itemDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'inventory', itemId);
+        const itemDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'inventory', stockId);
         await setDoc(itemDocRef, { stock: 0 }, { merge: true });
-        showNotification('Товар добавлен в стоп-лист', 'info');
+        showNotification('Позиция переведена в стоп-лист', 'info');
       } catch (error) {
         console.error("Ошибка добавления в стоп-лист:", error);
       }
     }
 
-    // --- Хелперы работы с корзиной ---
-    function addToCart(itemId) {
-      const currentStock = state.inventory[itemId] !== undefined ? state.inventory[itemId] : DEFAULT_STOCK;
-      const alreadyInCart = state.cart[itemId] || 0;
+    // Расчет текущей загруженности корзины по конкретному складу
+    function getStockUsageInCart(stockId) {
+      let usage = 0;
+      Object.entries(state.cart).forEach(([cartItemId, count]) => {
+        const cartItem = findMenuItem(cartItemId);
+        if (cartItem) {
+          const itemStockId = cartItem.stockLinkId || cartItem.id;
+          if (itemStockId === stockId) {
+            const factor = cartItem.portionWeight !== undefined ? cartItem.portionWeight : 1;
+            usage += (count * factor);
+          }
+        }
+      });
+      return usage;
+    }
 
-      if (alreadyInCart >= currentStock) {
-        showNotification(`Нельзя заказать больше! На складе осталось всего: ${currentStock} шт.`, 'error');
+    // --- Добавление товара в корзину с учетом порционных весов ---
+    function addToCart(itemId) {
+      const item = findMenuItem(itemId);
+      if (!item) return;
+
+      const stockId = item.stockLinkId || item.id;
+      const currentStock = state.inventory[stockId] !== undefined ? state.inventory[stockId] : DEFAULT_STOCK;
+      
+      const portionWeight = item.portionWeight !== undefined ? item.portionWeight : 1;
+      const currentUsageInCart = getStockUsageInCart(stockId);
+
+      // Проверяем, хватит ли порций в бутылке/бокале для еще одного добавления
+      if (currentUsageInCart + portionWeight > currentStock) {
+        if (portionWeight > 1) {
+          showNotification(`Недостаточно порций вина для целой бутылки! На складе осталось: ${currentStock - currentUsageInCart} порц.`, 'error');
+        } else {
+          showNotification(`Нельзя заказать больше! На складе осталось порций: ${currentStock - currentUsageInCart}`, 'error');
+        }
         return;
       }
 
-      state.cart[itemId] = alreadyInCart + 1;
+      state.cart[itemId] = (state.cart[itemId] || 0) + 1;
       render();
-    }
-
-    // Уведомления
-    function showNotification(message, type = 'info') {
-      const existingToast = document.getElementById('system-toast');
-      if (existingToast) existingToast.remove();
-
-      const toast = document.createElement('div');
-      toast.id = 'system-toast';
-      toast.className = `fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl text-white text-xs font-bold shadow-lg animate-fade-in transition duration-300 ${
-        type === 'success' ? 'bg-green-600' : type === 'error' ? 'bg-red-600' : 'bg-brand-brown'
-      }`;
-      toast.innerText = message;
-      document.body.appendChild(toast);
-
-      setTimeout(() => { if (toast) toast.remove(); }, 3500);
     }
 
     // Изменение вкладок панели администратора
     function switchAdminTab(tabName) {
       state.adminTab = tabName;
-      // При смене вкладки сбрасываем выбранный стол
       state.selectedAdminTable = null;
       render();
     }
@@ -495,7 +505,7 @@
       render();
     }
 
-    // Отправка нового заказа в Firebase Firestore с уменьшением остатков
+    // Отправка нового заказа в Firebase Firestore с уменьшением остатков порций
     async function submitOrder() {
       if (Object.keys(state.cart).length === 0) return;
       
@@ -504,12 +514,22 @@
         return;
       }
 
-      // Дополнительная проверка остатков перед списанием
+      // Карта сгруппированных списаний порций по складам для всей корзины
+      const totalDeductions = {};
       for (const [itemId, count] of Object.entries(state.cart)) {
-        const currentStock = state.inventory[itemId] !== undefined ? state.inventory[itemId] : DEFAULT_STOCK;
-        if (count > currentStock) {
-          const item = findMenuItem(itemId);
-          showNotification(`Ошибка заказа: "${item ? item.name : itemId}" осталось всего ${currentStock} шт.!`, 'error');
+        const item = findMenuItem(itemId);
+        if (item) {
+          const stockId = item.stockLinkId || item.id;
+          const factor = item.portionWeight !== undefined ? item.portionWeight : 1;
+          totalDeductions[stockId] = (totalDeductions[stockId] || 0) + (count * factor);
+        }
+      }
+
+      // Финальная проверка остатков в базе перед совершением транзакции
+      for (const [stockId, neededPortions] of Object.entries(totalDeductions)) {
+        const currentStock = state.inventory[stockId] !== undefined ? state.inventory[stockId] : DEFAULT_STOCK;
+        if (neededPortions > currentStock) {
+          showNotification(`Недостаточно порций на складе! Требуется: ${neededPortions}, доступно: ${currentStock}.`, 'error');
           return;
         }
       }
@@ -535,11 +555,11 @@
       };
 
       try {
-        // Списываем остатки из БД для каждого товара
-        for (const [itemId, count] of Object.entries(state.cart)) {
-          const currentStock = state.inventory[itemId] !== undefined ? state.inventory[itemId] : DEFAULT_STOCK;
-          const updatedStock = Math.max(0, currentStock - count);
-          const itemDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'inventory', itemId);
+        // Списываем остатки из БД по каждому вовлеченному складу
+        for (const [stockId, neededPortions] of Object.entries(totalDeductions)) {
+          const currentStock = state.inventory[stockId] !== undefined ? state.inventory[stockId] : DEFAULT_STOCK;
+          const updatedStock = Math.max(0, currentStock - neededPortions);
+          const itemDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'inventory', stockId);
           await setDoc(itemDocRef, { stock: updatedStock }, { merge: true });
         }
 
@@ -555,7 +575,7 @@
         console.error("Ошибка сохранения заказа в Firestore:", error);
         state.showConfirmOrderModal = false;
         state.cart = {};
-        showNotification("Заказ принят системой! (Режим ожидания сети)", "success");
+        showNotification("Ошибка отправки заказа.", "error");
         render();
       }
     }
@@ -839,15 +859,23 @@
         // Список блюд выбранной категории
         const itemsHtml = currentCategory.items ? currentCategory.items.map(item => {
           const countInCart = state.cart[item.id] || 0;
-          const currentStock = state.inventory[item.id] !== undefined ? state.inventory[item.id] : DEFAULT_STOCK;
-          const isOutOfStock = currentStock <= 0;
+          
+          // Связываем остатки с общим складом по stockLinkId
+          const stockId = item.stockLinkId || item.id;
+          const currentStock = state.inventory[stockId] !== undefined ? state.inventory[stockId] : DEFAULT_STOCK;
+          
+          const portionWeight = item.portionWeight !== undefined ? item.portionWeight : 1;
+          const currentUsageInCart = getStockUsageInCart(stockId);
+
+          // Проверка: достаточно ли порций осталось для заказа хотя бы одной единицы этого товара
+          const isOutOfStock = currentStock < portionWeight;
 
           return `
             <div class="bg-white p-4 rounded-2xl shadow-sm border border-brand-brown/5 flex gap-4 items-center justify-between transition hover:shadow ${isOutOfStock ? 'opacity-60' : ''}">
               <div class="flex-1 pr-2">
-                <h3 class="font-bold text-brand-dark text-sm leading-snug flex items-center gap-1.5">
-                  ${item.name}
-                  ${isOutOfStock ? '<span class="text-[9px] bg-red-100 text-red-700 font-bold px-1.5 py-0.5 rounded">Нет в наличии</span>' : ''}
+                <h3 class="font-bold text-brand-dark text-sm leading-snug flex items-center gap-1.5 flex-wrap">
+                  <span>${item.name}</span>
+                  ${isOutOfStock ? '<span class="text-[9px] bg-red-100 text-red-700 font-bold px-1.5 py-0.5 rounded">Закончилось</span>' : ''}
                 </h3>
                 <p class="text-xs text-brand-brown/80 mt-1 line-clamp-2">${item.description || ''}</p>
                 <div class="text-sm font-extrabold text-brand-peach mt-2">${item.price} ₽</div>
@@ -857,7 +885,7 @@
                 ${isOutOfStock ? `
                   <button 
                     disabled 
-                    class="bg-gray-300 text-gray-500 text-xs font-extrabold px-3 py-2 rounded-full cursor-not-allowed"
+                    class="bg-gray-200 text-gray-400 text-xs font-bold px-3 py-2 rounded-full cursor-not-allowed"
                   >
                     Закончился
                   </button>
@@ -867,8 +895,8 @@
                     <span class="font-bold text-sm w-4 text-center text-brand-dark">${countInCart}</span>
                     <button 
                       onclick="addToCart('${item.id}')" 
-                      class="w-6 h-6 rounded-full bg-white flex items-center justify-center text-brand-peach font-bold hover:bg-brand-peach/10 active:scale-95 transition ${countInCart >= currentStock ? 'opacity-40 cursor-not-allowed' : ''}"
-                      ${countInCart >= currentStock ? 'disabled title="Предел наличия"' : ''}
+                      class="w-6 h-6 rounded-full bg-white flex items-center justify-center text-brand-peach font-bold hover:bg-brand-peach/10 active:scale-95 transition ${currentUsageInCart + portionWeight > currentStock ? 'opacity-40 cursor-not-allowed' : ''}"
+                      ${currentUsageInCart + portionWeight > currentStock ? 'disabled title="Предел наличия порций"' : ''}
                     >+</button>
                   </div>
                 ` : `
@@ -914,8 +942,13 @@
         if (state.showConfirmOrderModal && cartCount > 0) {
           const cartItemsHtml = Object.entries(state.cart).map(([itemId, count]) => {
             const item = findMenuItem(itemId);
-            const currentStock = state.inventory[itemId] !== undefined ? state.inventory[itemId] : DEFAULT_STOCK;
             if (!item) return '';
+
+            const stockId = item.stockLinkId || item.id;
+            const currentStock = state.inventory[stockId] !== undefined ? state.inventory[stockId] : DEFAULT_STOCK;
+            const portionWeight = item.portionWeight !== undefined ? item.portionWeight : 1;
+            const currentUsageInCart = getStockUsageInCart(stockId);
+
             return `
               <div class="flex justify-between items-center bg-brand-cream/30 p-3 rounded-xl border border-brand-brown/10">
                 <div class="flex-1 pr-2">
@@ -927,8 +960,8 @@
                   <span class="font-bold text-xs text-brand-dark w-4 text-center">${count}</span>
                   <button 
                     onclick="addToCart('${item.id}')" 
-                    class="w-6 h-6 rounded-full bg-white border border-brand-brown/20 flex items-center justify-center text-brand-peach font-extrabold hover:bg-brand-peach/10 transition ${count >= currentStock ? 'opacity-40 cursor-not-allowed' : ''}"
-                    ${count >= currentStock ? 'disabled' : ''}
+                    class="w-6 h-6 rounded-full bg-white border border-brand-brown/20 flex items-center justify-center text-brand-peach font-extrabold hover:bg-brand-peach/10 transition ${currentUsageInCart + portionWeight > currentStock ? 'opacity-40 cursor-not-allowed' : ''}"
+                    ${currentUsageInCart + portionWeight > currentStock ? 'disabled' : ''}
                   >+</button>
                 </div>
                 <div class="w-16 text-right font-extrabold text-xs text-brand-dark ml-2">
@@ -1042,7 +1075,7 @@
 
           guestHistoryModalHtml = `
             <div class="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-50 flex items-start justify-center p-4 pb-24 overflow-y-auto">
-              <div class="bg-brand-cream border-2 border-brand-brown p-5 rounded-2xl w-full max-w-sm shadow-2xl relative max-h-[72vh] flex flex-col justify-between my-4">
+              <div class="bg-brand-cream border-2 border-brand-brown p-5 rounded-2xl w-full max-w-sm shadow-2xl relative max-h-[72vh] flex flex-col justify-between my-4 animate-fade-in">
                 <button onclick="toggleGuestHistoryModal(false)" class="absolute top-4 right-4 text-brand-brown hover:text-brand-dark z-10">
                   <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
@@ -1382,48 +1415,117 @@
           }
         }
 
-        // Вкладка "Управление остатками" (Только ручной ввод и стоп-лист)
+        // Вкладка "Управление остатками" (Понимает связку бокалов/бутылок через порции)
         else if (state.adminTab === 'inventory') {
           let inventoryListHtml = '';
 
           if (state.menuData && state.menuData.categories) {
-            inventoryListHtml = state.menuData.categories.map(category => {
-              const itemsRows = category.items.map(item => {
-                const stock = state.inventory[item.id] !== undefined ? state.inventory[item.id] : DEFAULT_STOCK;
-                const isZero = stock <= 0;
+            // Создаем уникальную карту складов, чтобы не дублировать связанные позиции в списке остатков
+            const processedStockIds = new Set();
+            const stockItemsList = [];
+
+            state.menuData.categories.forEach(category => {
+              category.items.forEach(item => {
+                const stockId = item.stockLinkId || item.id;
+                
+                if (!processedStockIds.has(stockId)) {
+                  processedStockIds.add(stockId);
+
+                  // Собираем все позиции меню, которые питаются от этого склада
+                  const linkedMenuNames = [];
+                  let textUnit = 'порц.'; // По умолчанию порции
+                  let descriptionHelp = '';
+
+                  state.menuData.categories.forEach(c => {
+                    c.items.forEach(i => {
+                      if ((i.stockLinkId || i.id) === stockId) {
+                        linkedMenuNames.push(i.name);
+                        
+                        // Определяем, какое пояснение дать складу на основе portionWeight
+                        if (i.portionWeight === 6) {
+                          descriptionHelp = 'Склад игристого вина (бутылка = 6 порц. по 125 мл)';
+                        } else if (i.portionWeight === 5) {
+                          descriptionHelp = 'Склад тихого вина (бутылка = 5 порц. по 150 мл)';
+                        }
+                      }
+                    });
+                  });
+
+                  stockItemsList.push({
+                    stockId,
+                    displayName: item.name.replace(' (бокал)', '').replace(' (бутылка)', '').trim(),
+                    linkedNames: linkedMenuNames,
+                    descriptionHelp: descriptionHelp || 'Обычный штучный/порционный склад',
+                    categoryTitle: category.title
+                  });
+                }
+              });
+            });
+
+            // Рендерим склады, группируя их по категориям, где они были впервые замечены
+            const categoriesWithStocks = {};
+            stockItemsList.forEach(stock => {
+              if (!categoriesWithStocks[stock.categoryTitle]) {
+                categoriesWithStocks[stock.categoryTitle] = [];
+              }
+              categoriesWithStocks[stock.categoryTitle].push(stock);
+            });
+
+            inventoryListHtml = Object.entries(categoriesWithStocks).map(([catTitle, stocks]) => {
+              const itemsRows = stocks.map(stock => {
+                const currentStockPortions = state.inventory[stock.stockId] !== undefined ? state.inventory[stock.stockId] : DEFAULT_STOCK;
+                
+                // Делаем удобную математическую подсказку об остатке в бутылках
+                let bottlesCalculationText = '';
+                if (stock.descriptionHelp.includes('игристого')) {
+                  const fullBottles = Math.floor(currentStockPortions / 6);
+                  const remainingGlasses = currentStockPortions % 6;
+                  bottlesCalculationText = `<div class="text-[10px] text-brand-peach font-bold mt-1">~ ${fullBottles} бут. и ${remainingGlasses} бок.</div>`;
+                } else if (stock.descriptionHelp.includes('тихого')) {
+                  const fullBottles = Math.floor(currentStockPortions / 5);
+                  const remainingGlasses = currentStockPortions % 5;
+                  bottlesCalculationText = `<div class="text-[10px] text-brand-peach font-bold mt-1">~ ${fullBottles} бут. и ${remainingGlasses} бок.</div>`;
+                }
 
                 return `
-                  <div class="p-3 bg-brand-cream/10 rounded-xl border border-brand-brown/5 flex items-center justify-between gap-2">
-                    <div class="flex-1 pr-1.5">
-                      <h4 class="text-xs font-bold text-brand-dark leading-tight">${item.name}</h4>
-                      <span class="text-[10px] text-brand-peach font-bold">${item.price} ₽</span>
+                  <div class="p-3 bg-brand-cream/10 rounded-xl border border-brand-brown/5 flex flex-col gap-2">
+                    <div class="flex items-start justify-between gap-2">
+                      <div class="flex-1">
+                        <h4 class="text-xs font-black text-brand-dark leading-tight">${stock.displayName}</h4>
+                        <p class="text-[9px] text-brand-brown/60 mt-1">${stock.descriptionHelp}</p>
+                        ${bottlesCalculationText}
+                      </div>
+                      
+                      <!-- Управление остатками порций -->
+                      <div class="flex items-center gap-1.5 flex-shrink-0">
+                        <div class="flex items-center bg-white border border-brand-brown/20 rounded-lg px-1.5 py-1 gap-1 shadow-sm">
+                          <span class="text-[10px] text-brand-brown/60 font-semibold">Остаток:</span>
+                          <input 
+                            type="text" 
+                            pattern="[0-9]*"
+                            inputmode="numeric"
+                            maxlength="3"
+                            value="${currentStockPortions}"
+                            onblur="handleManualStockInput('${stock.stockId}', this.value)"
+                            onkeydown="if(event.key === 'Enter') { handleManualStockInput('${stock.stockId}', this.value); this.blur(); }"
+                            class="w-11 h-7 text-center rounded bg-brand-cream/30 border border-brand-brown/10 focus:ring-1 focus:ring-brand-peach focus:outline-none text-xs font-black text-brand-dark"
+                            title="Введите число порций на складе"
+                          >
+                          <span class="text-[9px] text-brand-dark font-black">порц.</span>
+                        </div>
+
+                        <button 
+                          onclick="setStockZero('${stock.stockId}')" 
+                          class="bg-red-50 hover:bg-red-600 text-red-600 hover:text-white px-2.5 h-9 rounded-lg text-[10px] font-bold border border-red-100 hover:border-red-600 transition flex items-center justify-center gap-1"
+                          title="Добавить всю позицию в стоп-лист (0 порций)"
+                        >
+                          <i data-lucide="slash" class="w-3.5 h-3.5"></i> Стоп
+                        </button>
+                      </div>
                     </div>
                     
-                    <!-- Управление остатком: ручной инпут + кнопка сброса (стоп-лист) -->
-                    <div class="flex items-center gap-1.5 flex-shrink-0">
-                      <div class="flex items-center bg-white border border-brand-brown/20 rounded-lg px-1.5 py-1 gap-1 shadow-sm">
-                        <span class="text-[10px] text-brand-brown/60 font-medium">Остаток:</span>
-                        <input 
-                          type="text" 
-                          pattern="[0-9]*"
-                          inputmode="numeric"
-                          maxlength="3"
-                          value="${stock}"
-                          onblur="handleManualStockInput('${item.id}', this.value)"
-                          onkeydown="if(event.key === 'Enter') { handleManualStockInput('${item.id}', this.value); this.blur(); }"
-                          class="w-12 h-7 text-center rounded bg-brand-cream/30 border border-brand-brown/10 focus:ring-1 focus:ring-brand-peach focus:outline-none text-xs font-black text-brand-dark"
-                          title="Редактировать вручную"
-                        >
-                        <span class="text-[10px] text-brand-dark font-semibold">шт</span>
-                      </div>
-
-                      <button 
-                        onclick="setStockZero('${item.id}')" 
-                        class="bg-red-50 hover:bg-red-600 text-red-600 hover:text-white px-2.5 h-9 rounded-lg text-[10px] font-bold border border-red-100 hover:border-red-600 transition flex items-center justify-center gap-1"
-                        title="Добавить в стоп-лист (0 шт)"
-                      >
-                        <i data-lucide="slash" class="w-3.5 h-3.5"></i> Стоп
-                      </button>
+                    <div class="text-[9px] text-brand-brown/50 border-t border-brand-brown/5 pt-1.5">
+                      Связанные товары: ${stock.linkedNames.join(' | ')}
                     </div>
                   </div>
                 `;
@@ -1433,7 +1535,7 @@
                 <div class="bg-white p-4 rounded-2xl border border-brand-brown/10 shadow-sm space-y-3 animate-fade-in">
                   <h3 class="text-xs font-black text-brand-brown uppercase tracking-wider border-b border-brand-cream pb-1.5 flex items-center gap-1.5">
                     <i data-lucide="tag" class="w-3.5 h-3.5 text-brand-peach"></i>
-                    ${category.title}
+                    ${catTitle}
                   </h3>
                   <div class="space-y-2.5">
                     ${itemsRows}
