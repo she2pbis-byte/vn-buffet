@@ -12,7 +12,8 @@
         { "id": "alc_6", "name": "Ле Гран Нуар Пино Нуар, БОКАЛ", "price": 400, "description": "Франция, красное сухое, 150 мл", "available": true },
         { "id": "alc_7", "name": "Коньяк Кизляр 3*", "price": 300, "description": "50 мл", "available": true },
         { "id": "alc_8", "name": "Настойка Хреновуха", "price": 190, "description": "Ванильное Небо, 50 мл", "available": true },
-        { "id": "alc_9", "name": "Настойка Клюковка", "price": 190, "description": "Ванильное Небо, 50 мл", "available": true }
+        { "id": "alc_9", "name": "Настойка Клюковка", "price": 190, "description": "Ванильное Небо, 50 мл", "available": true },
+        { "id": "alc_21", "name": "Балаклава Брют, БУТЫЛКА", "price": 2400, "description": "Крым, белое брют, 750 мл", "available": true }
       ]
     },
     {
