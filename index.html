@@ -111,10 +111,11 @@
       screen: 'login', // 'login', 'guest_menu', 'admin_panel'
       tableNumber: null,
       menuData: null,
+      inventory: {}, // Реальное количество на складе { itemId: count } из Firestore
       activeCategoryId: '',
       cart: {}, // Храним { itemId: quantity }
       orders: [], // Real-time список всех заказов из Firestore
-      adminTab: 'new', // 'new' | 'served' | 'archive'
+      adminTab: 'new', // 'new' | 'served' | 'inventory' | 'archive'
       selectedBillOrder: null, // Выбранный заказ для чека
       showConfirmOrderModal: false, // Окно проверки корзины
       showGuestHistoryModal: false, // Модальное окно истории заказов гостя
@@ -125,9 +126,11 @@
     const ADMIN_PASSWORD = "56165616";
     const MIN_TABLE = 1;
     const MAX_TABLE = 50; 
+    const DEFAULT_STOCK = 15; // Сколько давать товара по умолчанию при первом импорте меню
 
-    // Ссылка на коллекцию заказов по правилу безопасных путей (RULE 1)
+    // Ссылки на коллекции по правилу безопасных путей (RULE 1)
     const ordersCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'orders');
+    const inventoryCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'inventory');
 
     // Экспонируем функции в глобальную область видимости
     window.addToCart = addToCart;
@@ -149,6 +152,10 @@
     window.logout = logout;
     window.requestBillPayment = requestBillPayment;
     window.switchAdminTab = switchAdminTab;
+    
+    // Новые глобальные функции для управления остатками (Inventory)
+    window.updateStockValue = updateStockValue;
+    window.setStockZero = setStockZero;
 
     // --- Загрузка и инициализация данных ---
     async function initApp() {
@@ -177,6 +184,7 @@
           state.user = firebaseUser;
           if (firebaseUser) {
             subscribeToOrders();
+            subscribeToInventory();
           }
         });
 
@@ -251,13 +259,85 @@
         state.orders = fetchedOrders;
         render();
       }, (error) => {
-        console.error("Ошибка при чтении Firestore:", error);
+        console.error("Ошибка при чтении Firestore (заказы):", error);
       });
+    }
+
+    // --- Real-time подписка на остатки (inventory) ---
+    function subscribeToInventory() {
+      if (!state.user) return;
+      const q = query(inventoryCollectionRef);
+
+      onSnapshot(q, (snapshot) => {
+        const stockData = {};
+        snapshot.forEach((doc) => {
+          stockData[doc.id] = doc.data().stock;
+        });
+
+        state.inventory = stockData;
+
+        // Авто-инициализация: если в базе данных Firestore нет записей для товаров из menu.json,
+        // мы автоматически создадим документы со стартовым остатком DEFAULT_STOCK
+        if (state.menuData && state.menuData.categories) {
+          state.menuData.categories.forEach(category => {
+            category.items.forEach(async (item) => {
+              if (state.inventory[item.id] === undefined) {
+                try {
+                  const itemDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'inventory', item.id);
+                  await setDoc(itemDocRef, { stock: DEFAULT_STOCK });
+                  state.inventory[item.id] = DEFAULT_STOCK;
+                } catch (e) {
+                  console.error("Ошибка при авто-инициализации остатка для:", item.id, e);
+                }
+              }
+            });
+          });
+        }
+
+        render();
+      }, (error) => {
+        console.error("Ошибка при чтении Firestore (остатки):", error);
+      });
+    }
+
+    // --- Управление остатками сотрудниками ---
+    async function updateStockValue(itemId, relativeChange) {
+      if (!state.user) return;
+      const currentStock = state.inventory[itemId] !== undefined ? state.inventory[itemId] : DEFAULT_STOCK;
+      const newStock = Math.max(0, currentStock + relativeChange);
+
+      try {
+        const itemDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'inventory', itemId);
+        await setDoc(itemDocRef, { stock: newStock }, { merge: true });
+        showNotification('Остаток успешно изменен', 'success');
+      } catch (error) {
+        console.error("Не удалось обновить остаток товара:", error);
+        showNotification('Ошибка обновления остатка', 'error');
+      }
+    }
+
+    async function setStockZero(itemId) {
+      if (!state.user) return;
+      try {
+        const itemDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'inventory', itemId);
+        await setDoc(itemDocRef, { stock: 0 }, { merge: true });
+        showNotification('Товар добавлен в стоп-лист', 'info');
+      } catch (error) {
+        console.error("Ошибка добавления в стоп-лист:", error);
+      }
     }
 
     // --- Хелперы работы с корзиной ---
     function addToCart(itemId) {
-      state.cart[itemId] = (state.cart[itemId] || 0) + 1;
+      const currentStock = state.inventory[itemId] !== undefined ? state.inventory[itemId] : DEFAULT_STOCK;
+      const alreadyInCart = state.cart[itemId] || 0;
+
+      if (alreadyInCart >= currentStock) {
+        showNotification(`Нельзя заказать больше! На складе осталось всего: ${currentStock} шт.`, 'error');
+        return;
+      }
+
+      state.cart[itemId] = alreadyInCart + 1;
       render();
     }
 
@@ -387,13 +467,23 @@
       render();
     }
 
-    // Отправка нового заказа в Firebase Firestore
+    // Отправка нового заказа в Firebase Firestore с уменьшением остатков
     async function submitOrder() {
       if (Object.keys(state.cart).length === 0) return;
       
       if (!state.user) {
         showNotification("Сбой подключения. Авторизация будет перезапущена...", "error");
         return;
+      }
+
+      // Дополнительная валидация: проверяем, что все выбранные товары всё еще есть на складе
+      for (const [itemId, count] of Object.entries(state.cart)) {
+        const currentStock = state.inventory[itemId] !== undefined ? state.inventory[itemId] : DEFAULT_STOCK;
+        if (count > currentStock) {
+          const item = findMenuItem(itemId);
+          showNotification(`Ошибка заказа: "${item ? item.name : itemId}" осталось всего ${currentStock} шт.!`, 'error');
+          return;
+        }
       }
 
       const orderItems = Object.entries(state.cart).map(([itemId, count]) => {
@@ -417,6 +507,15 @@
       };
 
       try {
+        // Списываем остатки из БД для каждого товара
+        for (const [itemId, count] of Object.entries(state.cart)) {
+          const currentStock = state.inventory[itemId] !== undefined ? state.inventory[itemId] : DEFAULT_STOCK;
+          const updatedStock = Math.max(0, currentStock - count);
+          const itemDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'inventory', itemId);
+          await setDoc(itemDocRef, { stock: updatedStock }, { merge: true });
+        }
+
+        // Добавляем документ заказа
         await addDoc(ordersCollectionRef, newOrder);
         
         state.showConfirmOrderModal = false;
@@ -711,20 +810,37 @@
         // Список блюд выбранной категории
         const itemsHtml = currentCategory.items ? currentCategory.items.map(item => {
           const countInCart = state.cart[item.id] || 0;
+          const currentStock = state.inventory[item.id] !== undefined ? state.inventory[item.id] : DEFAULT_STOCK;
+          const isOutOfStock = currentStock <= 0;
+
           return `
-            <div class="bg-white p-4 rounded-2xl shadow-sm border border-brand-brown/5 flex gap-4 items-center justify-between transition hover:shadow">
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-brand-brown/5 flex gap-4 items-center justify-between transition hover:shadow ${isOutOfStock ? 'opacity-60' : ''}">
               <div class="flex-1 pr-2">
-                <h3 class="font-bold text-brand-dark text-sm leading-snug">${item.name}</h3>
+                <h3 class="font-bold text-brand-dark text-sm leading-snug flex items-center gap-1.5">
+                  ${item.name}
+                  ${isOutOfStock ? '<span class="text-[9px] bg-red-100 text-red-700 font-bold px-1.5 py-0.5 rounded">Нет в наличии</span>' : ''}
+                </h3>
                 <p class="text-xs text-brand-brown/80 mt-1 line-clamp-2">${item.description || ''}</p>
                 <div class="text-sm font-extrabold text-brand-peach mt-2">${item.price} ₽</div>
               </div>
               
               <div class="flex items-center">
-                ${countInCart > 0 ? `
+                ${isOutOfStock ? `
+                  <button 
+                    disabled 
+                    class="bg-gray-300 text-gray-500 text-xs font-extrabold px-3 py-2 rounded-full cursor-not-allowed"
+                  >
+                    Закончился
+                  </button>
+                ` : countInCart > 0 ? `
                   <div class="flex items-center bg-brand-cream/60 border border-brand-peach/30 rounded-full px-2 py-1 gap-3">
                     <button onclick="removeFromCart('${item.id}')" class="w-6 h-6 rounded-full bg-white flex items-center justify-center text-brand-peach font-bold hover:bg-brand-peach/10 active:scale-95 transition">-</button>
                     <span class="font-bold text-sm w-4 text-center text-brand-dark">${countInCart}</span>
-                    <button onclick="addToCart('${item.id}')" class="w-6 h-6 rounded-full bg-white flex items-center justify-center text-brand-peach font-bold hover:bg-brand-peach/10 active:scale-95 transition">+</button>
+                    <button 
+                      onclick="addToCart('${item.id}')" 
+                      class="w-6 h-6 rounded-full bg-white flex items-center justify-center text-brand-peach font-bold hover:bg-brand-peach/10 active:scale-95 transition ${countInCart >= currentStock ? 'opacity-40 cursor-not-allowed' : ''}"
+                      ${countInCart >= currentStock ? 'disabled title="Предел наличия"' : ''}
+                    >+</button>
                   </div>
                 ` : `
                   <button 
@@ -769,6 +885,7 @@
         if (state.showConfirmOrderModal && cartCount > 0) {
           const cartItemsHtml = Object.entries(state.cart).map(([itemId, count]) => {
             const item = findMenuItem(itemId);
+            const currentStock = state.inventory[itemId] !== undefined ? state.inventory[itemId] : DEFAULT_STOCK;
             if (!item) return '';
             return `
               <div class="flex justify-between items-center bg-brand-cream/30 p-3 rounded-xl border border-brand-brown/10">
@@ -779,7 +896,11 @@
                 <div class="flex items-center gap-2">
                   <button onclick="removeFromCart('${item.id}')" class="w-6 h-6 rounded-full bg-white border border-brand-brown/20 flex items-center justify-center text-brand-peach font-extrabold hover:bg-brand-peach/10 transition">-</button>
                   <span class="font-bold text-xs text-brand-dark w-4 text-center">${count}</span>
-                  <button onclick="addToCart('${item.id}')" class="w-6 h-6 rounded-full bg-white border border-brand-brown/20 flex items-center justify-center text-brand-peach font-extrabold hover:bg-brand-peach/10 transition">+</button>
+                  <button 
+                    onclick="addToCart('${item.id}')" 
+                    class="w-6 h-6 rounded-full bg-white border border-brand-brown/20 flex items-center justify-center text-brand-peach font-extrabold hover:bg-brand-peach/10 transition ${count >= currentStock ? 'opacity-40 cursor-not-allowed' : ''}"
+                    ${count >= currentStock ? 'disabled' : ''}
+                  >+</button>
                 </div>
                 <div class="w-16 text-right font-extrabold text-xs text-brand-dark ml-2">
                   ${item.price * count} ₽
@@ -1018,32 +1139,43 @@
         const hasServedWaiting = servedOrders.some(o => o.waitingForPay);
 
         const tabsHtml = `
-          <div class="flex border-b border-brand-brown/10 bg-white sticky top-[58px] z-10">
+          <div class="flex border-b border-brand-brown/10 bg-white sticky top-[58px] z-10 overflow-x-auto no-scrollbar">
             <button 
               onclick="switchAdminTab('new')" 
-              class="flex-1 py-3 text-center text-[10px] font-bold tracking-wider uppercase border-b-2 transition flex items-center justify-center gap-1.5 ${
+              class="flex-1 min-w-[80px] py-3 text-center text-[9px] font-bold tracking-wider uppercase border-b-2 transition flex items-center justify-center gap-1 ${
                 state.adminTab === 'new' 
                   ? 'border-brand-peach text-brand-peach bg-brand-cream/20' 
                   : 'border-transparent text-brand-brown/70 hover:text-brand-dark'
               }"
             >
               <span>Новые (${newOrders.length})</span>
-              ${hasNewWaiting ? '<span class="w-2.5 h-2.5 bg-red-600 rounded-full animate-pulse"></span>' : ''}
+              ${hasNewWaiting ? '<span class="w-2 h-2 bg-red-600 rounded-full animate-pulse"></span>' : ''}
             </button>
             <button 
               onclick="switchAdminTab('served')" 
-              class="flex-1 py-3 text-center text-[10px] font-bold tracking-wider uppercase border-b-2 transition flex items-center justify-center gap-1.5 ${
+              class="flex-1 min-w-[85px] py-3 text-center text-[9px] font-bold tracking-wider uppercase border-b-2 transition flex items-center justify-center gap-1 ${
                 state.adminTab === 'served' 
                   ? 'border-brand-peach text-brand-peach bg-brand-cream/20' 
                   : 'border-transparent text-brand-brown/70 hover:text-brand-dark'
               }"
             >
-              <span>На столах (${servedOrders.length})</span>
-              ${hasServedWaiting ? '<span class="w-2.5 h-2.5 bg-red-600 rounded-full animate-pulse"></span>' : ''}
+              <span>Столы (${servedOrders.length})</span>
+              ${hasServedWaiting ? '<span class="w-2 h-2 bg-red-600 rounded-full animate-pulse"></span>' : ''}
+            </button>
+            <button 
+              onclick="switchAdminTab('inventory')" 
+              class="flex-1 min-w-[95px] py-3 text-center text-[9px] font-bold tracking-wider uppercase border-b-2 transition flex items-center justify-center gap-1 ${
+                state.adminTab === 'inventory' 
+                  ? 'border-brand-peach text-brand-peach bg-brand-cream/20' 
+                  : 'border-transparent text-brand-brown/70 hover:text-brand-dark'
+              }"
+            >
+              <i data-lucide="package" class="w-3.5 h-3.5"></i>
+              <span>Остатки</span>
             </button>
             <button 
               onclick="switchAdminTab('archive')" 
-              class="flex-1 py-3 text-center text-[10px] font-bold tracking-wider uppercase border-b-2 transition flex items-center justify-center gap-1.5 ${
+              class="flex-1 min-w-[80px] py-3 text-center text-[9px] font-bold tracking-wider uppercase border-b-2 transition flex items-center justify-center gap-1 ${
                 state.adminTab === 'archive' 
                   ? 'border-brand-peach text-brand-peach bg-brand-cream/20' 
                   : 'border-transparent text-brand-brown/70 hover:text-brand-dark'
@@ -1056,6 +1188,7 @@
 
         let ordersHtml = '';
 
+        // Вкладка "Новые"
         if (state.adminTab === 'new') {
           if (newOrders.length === 0) {
             ordersHtml = `
@@ -1120,6 +1253,7 @@
           }
         }
 
+        // Вкладка "На столах"
         else if (state.adminTab === 'served') {
           if (servedOrders.length === 0) {
             ordersHtml = `
@@ -1213,6 +1347,88 @@
           }
         }
 
+        // Вкладка "Управление остатками" (Новый функционал!)
+        else if (state.adminTab === 'inventory') {
+          let inventoryListHtml = '';
+
+          if (state.menuData && state.menuData.categories) {
+            inventoryListHtml = state.menuData.categories.map(category => {
+              const itemsRows = category.items.map(item => {
+                const stock = state.inventory[item.id] !== undefined ? state.inventory[item.id] : DEFAULT_STOCK;
+                const isZero = stock <= 0;
+
+                return `
+                  <div class="p-3 bg-brand-cream/10 rounded-xl border border-brand-brown/5 flex flex-col gap-2">
+                    <div class="flex justify-between items-start">
+                      <div class="flex-1">
+                        <h4 class="text-xs font-bold text-brand-dark">${item.name}</h4>
+                        <span class="text-[10px] text-brand-peach font-bold">${item.price} ₽</span>
+                      </div>
+                      <div class="text-right">
+                        <span class="px-2.5 py-1 rounded-full text-xs font-extrabold ${isZero ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'}">
+                          Остаток: ${stock} шт
+                        </span>
+                      </div>
+                    </div>
+
+                    <div class="flex gap-1.5 items-center justify-between mt-1">
+                      <!-- Шаг тонкой настройки -->
+                      <div class="flex items-center bg-white border border-brand-brown/20 rounded-lg px-1.5 py-1 gap-2.5 shadow-sm">
+                        <button onclick="updateStockValue('${item.id}', -1)" class="w-6 h-6 rounded bg-brand-cream/40 flex items-center justify-center text-brand-dark font-black hover:bg-brand-peach/10 transition">-1</button>
+                        <span class="text-xs font-black text-brand-dark w-5 text-center">${stock}</span>
+                        <button onclick="updateStockValue('${item.id}', 1)" class="w-6 h-6 rounded bg-brand-cream/40 flex items-center justify-center text-brand-dark font-black hover:bg-brand-peach/10 transition">+1</button>
+                      </div>
+
+                      <!-- Горячие кнопки больших изменений -->
+                      <div class="flex gap-1">
+                        <button 
+                          onclick="updateStockValue('${item.id}', 10)" 
+                          class="bg-brand-peach/20 hover:bg-brand-peach text-brand-brown hover:text-white px-2 py-1.5 rounded-lg text-[10px] font-black transition"
+                        >
+                          +10 шт
+                        </button>
+                        <button 
+                          onclick="setStockZero('${item.id}')" 
+                          class="bg-red-50 hover:bg-red-600 text-red-600 hover:text-white px-2 py-1.5 rounded-lg text-[10px] font-bold border border-red-100 hover:border-red-600 transition"
+                        >
+                          Стоп-лист
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                `;
+              }).join('');
+
+              return `
+                <div class="bg-white p-4 rounded-2xl border border-brand-brown/10 shadow-sm space-y-3">
+                  <h3 class="text-xs font-black text-brand-brown uppercase tracking-wider border-b border-brand-cream pb-1.5 flex items-center gap-1.5">
+                    <i data-lucide="tag" class="w-3.5 h-3.5 text-brand-peach"></i>
+                    ${category.title}
+                  </h3>
+                  <div class="space-y-2.5">
+                    ${itemsRows}
+                  </div>
+                </div>
+              `;
+            }).join('');
+          }
+
+          ordersHtml = `
+            <div class="space-y-4">
+              <div class="bg-brand-brown text-brand-cream p-4 rounded-2xl border border-brand-peach/30 shadow-md">
+                <h3 class="text-xs font-black uppercase flex items-center gap-1.5"><i data-lucide="info" class="w-4 h-4"></i> Складской учет</h3>
+                <p class="text-[10px] text-brand-cream/80 mt-1 leading-normal">
+                  Здесь вы управляете остатками товаров. Изменения мгновенно влияют на возможность оформления заказов гостями. При отправке заказа гостем остатки списываются автоматически.
+                </p>
+              </div>
+              <div class="space-y-4">
+                ${inventoryListHtml}
+              </div>
+            </div>
+          `;
+        }
+
+        // Вкладка "Архив"
         else if (state.adminTab === 'archive') {
           if (paidOrders.length === 0) {
             ordersHtml = `
@@ -1272,7 +1488,6 @@
         }
 
         // Модальное окно административного чека
-        // Изменено: Иконка в шапке счета заменена с "receipt" на "ruble" (₽)
         const billModalHtml = state.selectedBillOrder ? `
           <div class="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-50 flex items-start justify-center p-4 pb-24 overflow-y-auto">
             <div class="bg-white border-2 border-brand-brown p-5 rounded-2xl w-full max-w-sm shadow-2xl relative max-h-[72vh] flex flex-col justify-between my-4">
@@ -1329,10 +1544,10 @@
             </button>
           </header>
 
-          <!-- Табы Новые / На столах / Архив -->
+          <!-- Табы Новые / На столах / Остатки / Архив -->
           ${tabsHtml}
 
-          <!-- Основной контент (Список заказов) -->
+          <!-- Основной контент (Список заказов или панель складов) -->
           <main class="flex-1 p-4 space-y-4 overflow-y-auto">
             ${ordersHtml}
           </main>
