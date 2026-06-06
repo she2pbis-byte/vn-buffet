@@ -5,13 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>БУФЕТ В КЗЦ</title>
   
-  <!-- Подключение Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- Иконки Lucide для наглядного UI -->
   <script src="https://unpkg.com/lucide@latest"></script>
   
-  <!-- Конфигурация кастомных цветов из предоставленной палитры -->
   <script>
     tailwind.config = {
       theme: {
@@ -29,7 +26,6 @@
     }
   </script>
 
-  <!-- Стили для плавности интерфейса -->
   <style>
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(10px); }
@@ -58,14 +54,12 @@
 <body class="bg-brand-cream text-brand-dark font-sans min-h-screen selection:bg-brand-peach selection:text-white">
 
   <div id="app" class="max-w-md mx-auto bg-brand-cream min-h-screen relative flex flex-col shadow-2xl">
-    <!-- Приложение монтируется динамически через JS -->
     <div id="loader" class="flex flex-col items-center justify-center flex-1 py-20">
       <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-peach"></div>
       <p class="mt-4 text-brand-brown font-medium">Подключение к системе заказов...</p>
     </div>
   </div>
 
-  <!-- Подключение Firebase через официальные CDN-модули (v11.6.1) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { 
@@ -767,7 +761,6 @@
         container.className = "max-w-md mx-auto bg-brand-cream min-h-screen relative flex flex-col justify-between p-6 shadow-2xl animate-fade-in";
         container.innerHTML = `
           <div class="flex-1 flex flex-col justify-center py-4">
-            <!-- Логотип/Заголовок -->
             <div class="text-center mb-8">
               <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-brand-peach text-white mb-3 shadow-md">
                 <i data-lucide="chef-hat" class="w-8 h-8"></i>
@@ -776,7 +769,6 @@
               <p class="text-xs text-brand-brown font-semibold mt-1">Онлайн-заказ</p>
             </div>
 
-            <!-- Блок Гостя -->
             <div class="bg-white border border-brand-brown/10 p-6 rounded-2xl shadow-sm mb-6">
               <h2 class="text-md font-bold text-brand-dark mb-4 flex items-center gap-2 border-b border-brand-cream pb-2">
                 <i data-lucide="user" class="w-4 h-4 text-brand-peach"></i> Я — Гость
@@ -799,7 +791,6 @@
               </form>
             </div>
 
-            <!-- Блок Админа -->
             <div class="bg-white border border-brand-brown/10 p-6 rounded-2xl shadow-sm">
               <h2 class="text-md font-bold text-brand-dark mb-4 flex items-center gap-2 border-b border-brand-cream pb-2">
                 <i data-lucide="shield-check" class="w-4 h-4 text-brand-brown"></i> Панель сотрудника
@@ -985,7 +976,6 @@
                 
                 <p class="text-[10px] text-brand-brown font-semibold flex-shrink-0">Проверьте состав заказа. Вы можете отредактировать позиции перед отправкой.</p>
                 
-                <!-- Прокручиваемый список позиций с автоскроллом -->
                 <div class="space-y-2 overflow-y-auto pr-1 flex-1 min-h-0">
                   ${cartItemsHtml}
                 </div>
@@ -1086,7 +1076,6 @@
                     <p class="text-xs text-brand-brown">Стол №${state.tableNumber}</p>
                   </div>
 
-                  <!-- Прокручиваемый список истории счетов -->
                   <div class="space-y-2.5 overflow-y-auto flex-1 pr-1 no-scrollbar my-2 min-h-0">
                     ${myOrdersHtml}
                   </div>
@@ -1129,7 +1118,6 @@
         }
 
         container.innerHTML = `
-          <!-- Upper Navbar -->
           <header class="bg-brand-dark text-brand-cream px-4 py-4 sticky top-0 z-20 flex justify-between items-center shadow-md">
             <div class="flex items-center gap-2">
               <div>
@@ -1139,7 +1127,6 @@
             </div>
             
             <div class="flex items-center gap-2">
-              <!-- Иконка чека (счета) гостя -->
               <button 
                 onclick="toggleGuestHistoryModal(true)" 
                 class="bg-brand-brown p-2 rounded-full border border-brand-peach/30 text-brand-cream hover:bg-brand-peach transition relative"
@@ -1162,25 +1149,20 @@
             </div>
           </header>
 
-          <!-- Плитка категорий меню -->
           <div class="sticky top-[58px] z-10 bg-brand-cream/95 backdrop-blur-md border-b border-brand-brown/10 p-3">
             <div class="grid grid-cols-2 gap-2">
               ${categoryTabsHtml}
             </div>
           </div>
 
-          <!-- Список блюд -->
           <main class="flex-1 p-4 space-y-3">
             ${itemsHtml}
           </main>
 
-          <!-- Нижняя часть с корзиной -->
           ${bottomCartHtml}
 
-          <!-- Окно предварительного просмотра перед отправкой -->
           ${confirmOrderModalHtml}
 
-          <!-- Окно истории заказов стола -->
           ${guestHistoryModalHtml}
         `;
       }
@@ -1315,7 +1297,6 @@
                     ${itemsListHtml}
                   </div>
 
-                  <!-- Статус "просит счет" -->
                   ${isWaiting ? `
                     <div class="text-center bg-red-50 text-red-600 text-xs font-extrabold py-2 px-3 rounded-xl border border-red-200 animate-pulse flex items-center justify-center gap-1.5">
                       <i data-lucide="credit-card" class="w-4 h-4"></i> ГОСТЬ ПРОСИТ СЧЕТ!
@@ -1377,7 +1358,6 @@
                   onclick="selectAdminTable('${group.table}')"
                   class="aspect-square rounded-2xl border flex flex-col justify-between p-3.5 text-left shadow-sm active:scale-95 transition relative ${cardClasses}"
                 >
-                  <!-- Номер стола и верхний индикатор "Просит расчет" -->
                   <div class="flex justify-between items-start w-full">
                     <span class="text-xs font-black uppercase tracking-wide bg-brand-cream/60 px-2 py-0.5 rounded-lg text-brand-dark">
                       № ${group.table}
@@ -1390,7 +1370,6 @@
                     ` : ''}
                   </div>
                   
-                  <!-- Итоговая информация по столу снизу плашки -->
                   <div class="w-full mt-auto">
                     <div class="text-[9px] text-brand-brown/60 font-bold leading-tight">
                       ${group.orders.length} ${group.orders.length === 1 ? 'заказ' : group.orders.length < 5 ? 'заказа' : 'заказов'}
@@ -1414,7 +1393,7 @@
           }
         }
 
-        // Вкладка "Управление остатками" (Максимально чистый и компактный интерфейс)
+        // Вкладка "Управление остатками" (Кнопки и ввод перенесены под название)
         else if (state.adminTab === 'inventory') {
           let inventoryListHtml = '';
 
@@ -1452,15 +1431,13 @@
                 const currentStockPortions = state.inventory[stock.stockId] !== undefined ? state.inventory[stock.stockId] : DEFAULT_STOCK;
 
                 return `
-                  <div class="p-3 bg-brand-cream/10 rounded-xl border border-brand-brown/5 flex items-center justify-between gap-2">
-                    <!-- Только название товара -->
-                    <div class="flex-1 pr-1">
+                  <div class="p-3 bg-brand-cream/10 rounded-xl border border-brand-brown/5 flex flex-col gap-2.5">
+                    <div class="w-full">
                       <h4 class="text-xs font-black text-brand-dark leading-tight">${stock.displayName}</h4>
                     </div>
                     
-                    <!-- Управление остатками порций (Остаток + Поле + Стоп) -->
-                    <div class="flex items-center gap-1.5 flex-shrink-0">
-                      <div class="flex items-center bg-white border border-brand-brown/20 rounded-lg px-2 py-1 gap-1 shadow-sm">
+                    <div class="flex items-center gap-1.5 w-full pt-1 border-t border-brand-brown/5">
+                      <div class="flex items-center bg-white border border-brand-brown/20 rounded-lg px-2 py-1 gap-1 shadow-sm flex-1 justify-center">
                         <span class="text-[10px] text-brand-brown/60 font-semibold">Остаток:</span>
                         <input 
                           type="text" 
@@ -1478,10 +1455,10 @@
 
                       <button 
                         onclick="setStockZero('${stock.stockId}')" 
-                        class="bg-red-50 hover:bg-red-600 text-red-600 hover:text-white px-2.5 h-8 rounded-lg text-[10px] font-bold border border-red-100 hover:border-red-600 transition flex items-center justify-center gap-1"
+                        class="bg-red-50 hover:bg-red-600 text-red-600 hover:text-white px-2.5 h-8 rounded-lg text-[10px] font-bold border border-red-100 hover:border-red-600 transition flex items-center justify-center gap-1 flex-1"
                         title="Добавить всю позицию в стоп-лист (0 порций)"
                       >
-                        <i data-lucide="slash" class="w-3 h-3"></i> Стоп
+                        <i data-lucide="slash" class="w-3 h-3"></i> Стоп-лист
                       </button>
                     </div>
                   </div>
@@ -1582,7 +1559,6 @@
                 <p class="text-xs text-brand-brown font-bold text-sm">Стол №${state.selectedBillOrder.table}</p>
               </div>
 
-              <!-- Прокручиваемый список позиций в чеке -->
               <div class="py-4 space-y-2 border-b border-dashed border-brand-brown/30 overflow-y-auto flex-1 min-h-0 my-2 pr-1">
                 ${state.selectedBillOrder.items.map(item => `
                   <div class="flex justify-between text-xs">
@@ -1597,7 +1573,6 @@
                 <span class="text-lg font-black text-brand-peach">${state.selectedBillOrder.total} ₽</span>
               </div>
 
-              <!-- Только одна чистая кнопка закрытия во всю ширину -->
               <div class="flex-shrink-0">
                 <button 
                   onclick="closeBillModal()" 
@@ -1646,7 +1621,6 @@
                     </div>
                   </div>
 
-                  <!-- Полный объединенный список блюд стола -->
                   <div class="overflow-y-auto flex-1 my-3 pr-1">
                     <div class="text-[10px] text-brand-brown/60 font-bold uppercase tracking-wider mb-2">Общий заказ стола:</div>
                     <div class="space-y-1">
@@ -1661,14 +1635,12 @@
                     <span class="text-lg font-black text-brand-peach">${group.total} ₽</span>
                   </div>
 
-                  <!-- Статус «просит счет» -->
                   ${isWaiting ? `
                     <div class="text-center bg-red-50 text-red-600 text-xs font-extrabold py-2.5 px-3 rounded-xl border border-red-200 animate-pulse flex items-center justify-center gap-1.5">
                       <i data-lucide="credit-card" class="w-4 h-4 animate-bounce"></i> ГОСТЬ СТОЛА ПРОСИТ РАСЧЕТ!
                     </div>
                   ` : ''}
 
-                  <!-- Действия над столом -->
                   <div class="space-y-2">
                     <button 
                       onclick="payAllOrdersForTable(${group.table})" 
@@ -1690,7 +1662,6 @@
         }
 
         container.innerHTML = `
-          <!-- Шапка админки -->
           <header class="bg-brand-dark text-brand-cream px-4 py-4 sticky top-0 z-20 flex justify-between items-center shadow-md">
             <div class="flex items-center gap-2">
               <i data-lucide="terminal" class="w-5 h-5 text-brand-peach"></i>
@@ -1704,18 +1675,14 @@
             </button>
           </header>
 
-          <!-- Табы Новые / Столы / Остатки / Архив -->
           ${tabsHtml}
 
-          <!-- Основной контент (Список заказов или панель складов) -->
           <main class="flex-1 p-4 space-y-4 overflow-y-auto">
             ${ordersHtml}
           </main>
 
-          <!-- Модальное окно чека архива -->
           ${billModalHtml}
 
-          <!-- Детальное окно просмотра стола по тапу -->
           ${tableDetailModalHtml}
         `;
       }
