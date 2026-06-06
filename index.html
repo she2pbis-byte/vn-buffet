@@ -1414,7 +1414,7 @@
           }
         }
 
-        // Вкладка "Управление остатками" (Название в одну строчку, панель ввода и стоп-листа под ним)
+        // Вкладка "Управление остатками" (Максимально чистый и компактный интерфейс)
         else if (state.adminTab === 'inventory') {
           let inventoryListHtml = '';
 
@@ -1452,18 +1452,15 @@
                 const currentStockPortions = state.inventory[stock.stockId] !== undefined ? state.inventory[stock.stockId] : DEFAULT_STOCK;
 
                 return `
-                  <div class="p-3 bg-brand-cream/10 rounded-xl border border-brand-brown/5 flex flex-col gap-2">
-                    <!-- Название товара в одну строчку сверху -->
-                    <div class="w-full">
-                      <h4 class="text-xs font-black text-brand-dark truncate leading-tight" title="${stock.displayName}">
-                        ${stock.displayName}
-                      </h4>
+                  <div class="p-3 bg-brand-cream/10 rounded-xl border border-brand-brown/5 flex items-center justify-between gap-2">
+                    <!-- Только название товара -->
+                    <div class="flex-1 pr-1">
+                      <h4 class="text-xs font-black text-brand-dark leading-tight">${stock.displayName}</h4>
                     </div>
                     
-                    <!-- Управление остатками порций строго ПОД названием -->
-                    <div class="flex items-center justify-between gap-1.5 w-full mt-0.5">
-                      <!-- Поле ввода остатка -->
-                      <div class="flex items-center bg-white border border-brand-brown/20 rounded-lg px-2 py-1 gap-1 shadow-sm flex-1">
+                    <!-- Управление остатками порций (Остаток + Поле + Стоп) -->
+                    <div class="flex items-center gap-1.5 flex-shrink-0">
+                      <div class="flex items-center bg-white border border-brand-brown/20 rounded-lg px-2 py-1 gap-1 shadow-sm">
                         <span class="text-[10px] text-brand-brown/60 font-semibold">Остаток:</span>
                         <input 
                           type="text" 
@@ -1473,16 +1470,15 @@
                           value="${currentStockPortions}"
                           onblur="handleManualStockInput('${stock.stockId}', this.value)"
                           onkeydown="if(event.key === 'Enter') { handleManualStockInput('${stock.stockId}', this.value); this.blur(); }"
-                          class="w-12 h-6 text-center rounded bg-brand-cream/30 border border-brand-brown/10 focus:ring-1 focus:ring-brand-peach focus:outline-none text-xs font-black text-brand-dark flex-shrink-0"
+                          class="w-10 h-6 text-center rounded bg-brand-cream/30 border border-brand-brown/10 focus:ring-1 focus:ring-brand-peach focus:outline-none text-xs font-black text-brand-dark"
                           title="Введите число порций на складе"
                         >
                         <span class="text-[9px] text-brand-dark font-black">порц.</span>
                       </div>
 
-                      <!-- Кнопка добавления в стоп-лист -->
                       <button 
                         onclick="setStockZero('${stock.stockId}')" 
-                        class="bg-red-50 hover:bg-red-600 text-red-600 hover:text-white px-3.5 h-8 rounded-lg text-[10px] font-bold border border-red-100 hover:border-red-600 transition flex items-center justify-center gap-1 flex-shrink-0"
+                        class="bg-red-50 hover:bg-red-600 text-red-600 hover:text-white px-2.5 h-8 rounded-lg text-[10px] font-bold border border-red-100 hover:border-red-600 transition flex items-center justify-center gap-1"
                         title="Добавить всю позицию в стоп-лист (0 порций)"
                       >
                         <i data-lucide="slash" class="w-3 h-3"></i> Стоп
