@@ -213,9 +213,12 @@
 "id": "desserts",
 "title": "Десерты",
 "items": [
-{ "id": "des_1", "name": "Чизкейк Нью-Йорк", "price": 240, "description": "Классический сливочный десерт", "available": true },
-{ "id": "des_2", "name": "Тирамису", "price": 260, "description": "С маскарпоне и кофейной пропиткой", "available": true },
-{ "id": "des_3", "name": "Шоколадный фондан", "price": 220, "description": "С жидким центром и шариком мороженого", "available": true }
+{ "id": "des_1", "name": "Макрони", "price": 250, "description": "Набор из 3-х штук", "available": true },
+{ "id": "des_2", "name": "Эклер", "price": 100, "description": "Ваниль / шоколад", "available": true },
+{ "id": "des_3", "name": "Корзиночка Восточная", "price": 110, "description": "С сухофруктамм", "available": true },
+{ "id": "des_4", "name": "Медовик", "price": 80, "description": "-", "available": true },
+{ "id": "des_4", "name": "Брауни", "price": 80, "description": "-", "available": true },
+{ "id": "des_4", "name": "Красный бархат", "price": 90, "description": "-", "available": true }
 ]
 }
 ]
