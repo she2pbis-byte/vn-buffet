@@ -123,7 +123,7 @@
     const MAX_TABLE = 50; 
     const DEFAULT_STOCK = 30; // По умолчанию даем 30 порций на склад при инициализации новой позиции
 
-    // Ссылки на коллекции по правилу безопасных путей (RULE 1)
+    // Ссылки на коллекции по правилу безопасных путей
     const ordersCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'orders');
     const inventoryCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'inventory');
 
@@ -153,6 +153,12 @@
     // Глобальные функции для управления остатками (Inventory)
     window.setStockZero = setStockZero;
     window.handleManualStockInput = handleManualStockInput;
+
+    // --- Вспомогательная функция уведомлений в UI ---
+    function showNotification(message, type = 'info') {
+      console.log(`[${type.toUpperCase()}] ${message}`);
+      // При необходимости сюда можно встроить красивый всплывающий toast-компонент
+    }
 
     // --- Загрузка и инициализация данных ---
     async function initApp() {
@@ -525,7 +531,7 @@
       render();
     }
 
-    // Отправка нового заказа в Firebase Firestore с уменьшением остатков порций
+    // --- Оптимизированная и исправленная отправка нового заказа ---
     async function submitOrder() {
       if (Object.keys(state.cart).length === 0) return;
       
@@ -534,47 +540,59 @@
         return;
       }
 
-      // Карта сгруппированных списаний порций по складам для всей корзины
-      const totalDeductions = {};
-      for (const [itemId, count] of Object.entries(state.cart)) {
-        const item = findMenuItem(itemId);
-        if (item) {
-          const stockId = item.stockLinkId || item.id;
-          const factor = item.portionWeight !== undefined ? item.portionWeight : 1;
-          totalDeductions[stockId] = (totalDeductions[stockId] || 0) + (count * factor);
-        }
+      // Находим кнопку отправки и блокируем интерфейс на время транзакции
+      const submitBtn = document.getElementById('confirmOrderSubmitBtn');
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="w-4 h-4 animate-spin text-white"></i> Отправка...';
       }
-
-      // Финальная проверка остатков в базе перед совершением транзакции
-      for (const [stockId, neededPortions] of Object.entries(totalDeductions)) {
-        const currentStock = state.inventory[stockId] !== undefined ? state.inventory[stockId] : DEFAULT_STOCK;
-        if (neededPortions > currentStock) {
-          showNotification(`Недостаточно порций на складе! Требуется: ${neededPortions}, доступно: ${currentStock}.`, 'error');
-          return;
-        }
-      }
-
-      const orderItems = Object.entries(state.cart).map(([itemId, count]) => {
-        const item = findMenuItem(itemId);
-        return {
-          id: itemId,
-          name: item.name,
-          price: Number(item.price),
-          count: Number(count)
-        };
-      });
-
-      const tableString = String(state.tableNumber);
-
-      const newOrder = {
-        table: tableString,
-        items: orderItems,
-        status: 'new',
-        timestamp: new Date().toISOString(),
-        total: Number(getCartTotal())
-      };
 
       try {
+        // Карта сгруппированных списаний порций по складам для всей корзины
+        const totalDeductions = {};
+        for (const [itemId, count] of Object.entries(state.cart)) {
+          const item = findMenuItem(itemId);
+          if (item) {
+            const stockId = item.stockLinkId || item.id;
+            const factor = item.portionWeight !== undefined ? item.portionWeight : 1;
+            totalDeductions[stockId] = (totalDeductions[stockId] || 0) + (count * factor);
+          }
+        }
+
+        // Финальная проверка остатков в базе перед совершением транзакции
+        for (const [stockId, neededPortions] of Object.entries(totalDeductions)) {
+          const currentStock = state.inventory[stockId] !== undefined ? state.inventory[stockId] : DEFAULT_STOCK;
+          if (neededPortions > currentStock) {
+            showNotification(`Недостаточно порций на складе! Требуется: ${neededPortions}, доступно: ${currentStock}.`, 'error');
+            if (submitBtn) {
+              submitBtn.disabled = false;
+              submitBtn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i> Всё верно, заказать';
+              lucide.createIcons();
+            }
+            return;
+          }
+        }
+
+        const orderItems = Object.entries(state.cart).map(([itemId, count]) => {
+          const item = findMenuItem(itemId);
+          return {
+            id: itemId,
+            name: item.name,
+            price: Number(item.price),
+            count: Number(count)
+          };
+        });
+
+        const tableString = String(state.tableNumber);
+
+        const newOrder = {
+          table: tableString,
+          items: orderItems,
+          status: 'new',
+          timestamp: new Date().toISOString(),
+          total: Number(getCartTotal())
+        };
+
         // Списываем остатки из БД по каждому вовлеченному складу
         for (const [stockId, neededPortions] of Object.entries(totalDeductions)) {
           const currentStock = state.inventory[stockId] !== undefined ? state.inventory[stockId] : DEFAULT_STOCK;
@@ -586,16 +604,23 @@
         // Добавляем документ заказа
         await addDoc(ordersCollectionRef, newOrder);
         
+        // Гарантированно закрываем окно и очищаем локальную корзину
         state.showConfirmOrderModal = false;
         state.cart = {};
         
         showNotification("Заказ успешно отправлен на кухню!", "success");
-        render();
       } catch (error) {
         console.error("Ошибка сохранения заказа в Firestore:", error);
-        state.showConfirmOrderModal = false;
-        state.cart = {};
-        showNotification("Ошибка отправки заказа.", "error");
+        showNotification("Ошибка отправки заказа. Попробуйте еще раз.", "error");
+        
+        // В случае ошибки возвращаем интерфейс кнопки в исходное состояние, НЕ закрывая окно и сохраняя корзину
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i> Всё верно, заказать';
+          lucide.createIcons();
+        }
+      } finally {
+        // Выполняем точечный рендеринг, закрывающий модалку при успехе
         render();
       }
     }
@@ -994,8 +1019,9 @@
                       Назад
                     </button>
                     <button 
+                      id="confirmOrderSubmitBtn"
                       onclick="submitOrder()" 
-                      class="col-span-2 bg-green-600 hover:bg-green-700 text-white font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-1.5 shadow-md"
+                      class="col-span-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white disabled:text-gray-200 font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-1.5 shadow-md"
                     >
                       <i data-lucide="check" class="w-3.5 h-3.5"></i> Всё верно, заказать
                     </button>
@@ -1134,7 +1160,7 @@
               >
                 <i data-lucide="receipt" class="w-4 h-4"></i>
                 ${state.orders.filter(o => String(o.table) === String(state.tableNumber) && o.status !== 'paid').length > 0 ? `
-                  <span class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-brand-peach rounded-full border border-brand-dark animate-pulse"></span>
+                  <span class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-brand-peach rounded-full border border-dark animate-pulse"></span>
                 ` : ''}
               </button>
 
@@ -1393,7 +1419,7 @@
           }
         }
 
-        // Вкладка "Управление остатками" (Кнопки и ввод перенесены под название)
+        // Вкладка "Управление остатками"
         else if (state.adminTab === 'inventory') {
           let inventoryListHtml = '';
 
