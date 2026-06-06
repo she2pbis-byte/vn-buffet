@@ -7,7 +7,7 @@
 {
 "id": "alc_1",
 "name": "Балаклава Брют, БОКАЛ",
-"price": 400,
+"price": 450,
 "description": "Крым, белое брют, 125 мл",
 "available": true,
 "stockLinkId": "stock_balaklava_brut",
@@ -16,7 +16,7 @@
 {
 "id": "alc_2",
 "name": "Балаклава Мускат, БОКАЛ",
-"price": 400,
+"price": 450,
 "description": "Крым, белое полусладкое, 125 мл",
 "available": true,
 "stockLinkId": "stock_balaklava_muscat",
@@ -43,7 +43,7 @@
 {
 "id": "alc_5",
 "name": "Ле Гран Нуар Совиньон Блан, БОКАЛ",
-"price": 400,
+"price": 500,
 "description": "Франция, белое сухое, 150 мл",
 "available": true,
 "stockLinkId": "stock_le_grand_sauvignon",
@@ -52,7 +52,7 @@
 {
 "id": "alc_6",
 "name": "Ле Гран Нуар Пино Нуар, БОКАЛ",
-"price": 400,
+"price": 500,
 "description": "Франция, красное сухое, 150 мл",
 "available": true,
 "stockLinkId": "stock_le_grand_pinot",
@@ -88,7 +88,7 @@
 {
 "id": "alc_21",
 "name": "Балаклава Брют, БУТЫЛКА",
-"price": 2400,
+"price": 2700,
 "description": "Крым, белое брют, 750 мл",
 "available": true,
 "stockLinkId": "stock_balaklava_brut",
@@ -97,7 +97,7 @@
 {
 "id": "alc_22",
 "name": "Балаклава Мускат, БУТЫЛКА",
-"price": 2400,
+"price": 2700,
 "description": "Крым, белое полусладкое, 750 мл",
 "available": true,
 "stockLinkId": "stock_balaklava_muscat",
@@ -124,7 +124,7 @@
 {
 "id": "alc_25",
 "name": "Ле Гран Нуар Совиньон Блан, БУТЫЛКА",
-"price": 2000,
+"price": 2500,
 "description": "Франция, белое сухое, 750 мл",
 "available": true,
 "stockLinkId": "stock_le_grand_sauvignon",
@@ -133,7 +133,7 @@
 {
 "id": "alc_26",
 "name": "Ле Гран Нуар Пино Нуар, БУТЫЛКА",
-"price": 2000,
+"price": 2500,
 "description": "Франция, красное сухое, 750 мл",
 "available": true,
 "stockLinkId": "stock_le_grand_pinot",
@@ -183,9 +183,9 @@
 "id": "hot-drinks",
 "title": "Горячие напитки",
 "items": [
-{ "id": "hot_1", "name": "Американо", "price": 130, "description": "150 мл", "available": true },
+{ "id": "hot_1", "name": "Американо", "price": 150, "description": "150 мл", "available": true },
 { "id": "hot_2", "name": "Капучино", "price": 220, "description": "150 мл", "available": true },
-{ "id": "hot_3", "name": "Эспрессо", "price": 130, "description": "30 мл", "available": true },
+{ "id": "hot_3", "name": "Эспрессо", "price": 150, "description": "30 мл", "available": true },
 { "id": "hot_4", "name": "Чай черный", "price": 50, "description": "Пакетированный", "available": true },
 { "id": "hot_5", "name": "Чай зеленый", "price": 50, "description": "Пакетированный", "available": true }
 ]
