@@ -5,10 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>БУФЕТ В КЗЦ</title>
   
+  <!-- Подключение Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   
+  <!-- Иконки Lucide для наглядного UI -->
   <script src="https://unpkg.com/lucide@latest"></script>
   
+  <!-- Конфигурация кастомных цветов из предоставленной палитры -->
   <script>
     tailwind.config = {
       theme: {
@@ -26,6 +29,7 @@
     }
   </script>
 
+  <!-- Стили для плавности интерфейса -->
   <style>
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(10px); }
@@ -54,12 +58,14 @@
 <body class="bg-brand-cream text-brand-dark font-sans min-h-screen selection:bg-brand-peach selection:text-white">
 
   <div id="app" class="max-w-md mx-auto bg-brand-cream min-h-screen relative flex flex-col shadow-2xl">
+    <!-- Приложение монтируется динамически через JS -->
     <div id="loader" class="flex flex-col items-center justify-center flex-1 py-20">
       <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-peach"></div>
       <p class="mt-4 text-brand-brown font-medium">Подключение к системе заказов...</p>
     </div>
   </div>
 
+  <!-- Подключение Firebase через официальные CDN-модули (v11.6.1) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { 
@@ -115,6 +121,7 @@
       showConfirmOrderModal: false, // Окно проверки корзины
       showGuestHistoryModal: false, // Модальное окно истории заказов гостя
       user: null, // Авторизованный в Firebase пользователь
+      isSubmittingOrder: false, // Флаг процесса отправки заказа в базу данных
     };
 
     // --- Системные константы ---
@@ -123,7 +130,7 @@
     const MAX_TABLE = 50; 
     const DEFAULT_STOCK = 30; // По умолчанию даем 30 порций на склад при инициализации новой позиции
 
-    // Ссылки на коллекции по правилу безопасных путей
+    // Ссылки на коллекции по правилу безопасных путей (RULE 1)
     const ordersCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'orders');
     const inventoryCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'inventory');
 
@@ -157,7 +164,6 @@
     // --- Вспомогательная функция уведомлений в UI ---
     function showNotification(message, type = 'info') {
       console.log(`[${type.toUpperCase()}] ${message}`);
-      // При необходимости сюда можно встроить красивый всплывающий toast-компонент
     }
 
     // --- Загрузка и инициализация данных ---
@@ -355,6 +361,9 @@
 
     // --- Добавление товара в корзину с учетом порционных весов ---
     function addToCart(itemId) {
+      // Блокируем добавление, если в данный момент отправляется заказ
+      if (state.isSubmittingOrder) return;
+
       const item = findMenuItem(itemId);
       if (!item) return;
 
@@ -398,6 +407,9 @@
     }
 
     function removeFromCart(itemId) {
+      // Блокируем удаление, если в данный момент отправляется заказ
+      if (state.isSubmittingOrder) return;
+
       if (state.cart[itemId]) {
         state.cart[itemId] -= 1;
         if (state.cart[itemId] === 0) {
@@ -412,6 +424,7 @@
 
     // Очистка корзины
     function clearCart() {
+      if (state.isSubmittingOrder) return;
       state.cart = {};
       state.showConfirmOrderModal = false;
       render();
@@ -473,6 +486,7 @@
     }
 
     function closeConfirmOrderModal() {
+      if (state.isSubmittingOrder) return; // Запрещаем закрывать окно во время записи в БД
       state.showConfirmOrderModal = false;
       render();
     }
@@ -531,21 +545,19 @@
       render();
     }
 
-    // --- Оптимизированная и исправленная отправка нового заказа ---
+    // --- Исправленная функция отправки нового заказа с анимацией загрузки ---
     async function submitOrder() {
       if (Object.keys(state.cart).length === 0) return;
-      
+      if (state.isSubmittingOrder) return; // Защита от случайных повторных кликов
+
       if (!state.user) {
         showNotification("Сбой подключения. Авторизация будет перезапущена...", "error");
         return;
       }
 
-      // Находим кнопку отправки и блокируем интерфейс на время транзакции
-      const submitBtn = document.getElementById('confirmOrderSubmitBtn');
-      if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="w-4 h-4 animate-spin text-white"></i> Отправка...';
-      }
+      // Устанавливаем флаг отправки заказа и немедленно перерисовываем интерфейс (включая спиннер на кнопке)
+      state.isSubmittingOrder = true;
+      render();
 
       try {
         // Карта сгруппированных списаний порций по складам для всей корзины
@@ -564,11 +576,8 @@
           const currentStock = state.inventory[stockId] !== undefined ? state.inventory[stockId] : DEFAULT_STOCK;
           if (neededPortions > currentStock) {
             showNotification(`Недостаточно порций на складе! Требуется: ${neededPortions}, доступно: ${currentStock}.`, 'error');
-            if (submitBtn) {
-              submitBtn.disabled = false;
-              submitBtn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i> Всё верно, заказать';
-              lucide.createIcons();
-            }
+            state.isSubmittingOrder = false;
+            render();
             return;
           }
         }
@@ -593,7 +602,7 @@
           total: Number(getCartTotal())
         };
 
-        // Списываем остатки из БД по каждому вовлеченному складу
+        // 1. Списываем остатки из БД по каждому вовлеченному складу
         for (const [stockId, neededPortions] of Object.entries(totalDeductions)) {
           const currentStock = state.inventory[stockId] !== undefined ? state.inventory[stockId] : DEFAULT_STOCK;
           const updatedStock = Math.max(0, currentStock - neededPortions);
@@ -601,26 +610,20 @@
           await setDoc(itemDocRef, { stock: updatedStock }, { merge: true });
         }
 
-        // Добавляем документ заказа
+        // 2. Добавляем документ заказа
         await addDoc(ordersCollectionRef, newOrder);
         
-        // Гарантированно закрываем окно и очищаем локальную корзину
-        state.showConfirmOrderModal = false;
+        // Только при гарантированном успехе очищаем корзину и выключаем модальное окно
         state.cart = {};
+        state.showConfirmOrderModal = false;
         
         showNotification("Заказ успешно отправлен на кухню!", "success");
       } catch (error) {
         console.error("Ошибка сохранения заказа в Firestore:", error);
         showNotification("Ошибка отправки заказа. Попробуйте еще раз.", "error");
-        
-        // В случае ошибки возвращаем интерфейс кнопки в исходное состояние, НЕ закрывая окно и сохраняя корзину
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i> Всё верно, заказать';
-          lucide.createIcons();
-        }
       } finally {
-        // Выполняем точечный рендеринг, закрывающий модалку при успехе
+        // Всегда выключаем статус отправки и обновляем интерфейс
+        state.isSubmittingOrder = false;
         render();
       }
     }
@@ -703,6 +706,7 @@
       }
     }
 
+    // Открытие чека
     function openBill(orderId) {
       const order = state.orders.find(o => o.id === orderId);
       if (order) {
@@ -786,6 +790,7 @@
         container.className = "max-w-md mx-auto bg-brand-cream min-h-screen relative flex flex-col justify-between p-6 shadow-2xl animate-fade-in";
         container.innerHTML = `
           <div class="flex-1 flex flex-col justify-center py-4">
+            <!-- Логотип/Заголовок -->
             <div class="text-center mb-8">
               <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-brand-peach text-white mb-3 shadow-md">
                 <i data-lucide="chef-hat" class="w-8 h-8"></i>
@@ -794,6 +799,7 @@
               <p class="text-xs text-brand-brown font-semibold mt-1">Онлайн-заказ</p>
             </div>
 
+            <!-- Блок Гостя -->
             <div class="bg-white border border-brand-brown/10 p-6 rounded-2xl shadow-sm mb-6">
               <h2 class="text-md font-bold text-brand-dark mb-4 flex items-center gap-2 border-b border-brand-cream pb-2">
                 <i data-lucide="user" class="w-4 h-4 text-brand-peach"></i> Я — Гость
@@ -816,6 +822,7 @@
               </form>
             </div>
 
+            <!-- Блок Админа -->
             <div class="bg-white border border-brand-brown/10 p-6 rounded-2xl shadow-sm">
               <h2 class="text-md font-bold text-brand-dark mb-4 flex items-center gap-2 border-b border-brand-cream pb-2">
                 <i data-lucide="shield-check" class="w-4 h-4 text-brand-brown"></i> Панель сотрудника
@@ -955,6 +962,8 @@
         // Всплывающее интерактивное окно проверки и редактирования заказа перед отправкой
         let confirmOrderModalHtml = '';
         if (state.showConfirmOrderModal && cartCount > 0) {
+          const isSubmitting = state.isSubmittingOrder;
+
           const cartItemsHtml = Object.entries(state.cart).map(([itemId, count]) => {
             const item = findMenuItem(itemId);
             if (!item) return '';
@@ -971,12 +980,16 @@
                   <span class="text-[10px] text-brand-brown">${item.price} ₽ / шт.</span>
                 </div>
                 <div class="flex items-center gap-2">
-                  <button onclick="removeFromCart('${item.id}')" class="w-6 h-6 rounded-full bg-white border border-brand-brown/20 flex items-center justify-center text-brand-peach font-extrabold hover:bg-brand-peach/10 transition">-</button>
+                  <button 
+                    onclick="${isSubmitting ? '' : `removeFromCart('${item.id}')`}" 
+                    ${isSubmitting ? 'disabled' : ''} 
+                    class="w-6 h-6 rounded-full bg-white border border-brand-brown/20 flex items-center justify-center text-brand-peach font-extrabold hover:bg-brand-peach/10 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                  >-</button>
                   <span class="font-bold text-xs text-brand-dark w-4 text-center">${count}</span>
                   <button 
-                    onclick="addToCart('${item.id}')" 
-                    class="w-6 h-6 rounded-full bg-white border border-brand-brown/20 flex items-center justify-center text-brand-peach font-extrabold hover:bg-brand-peach/10 transition ${currentUsageInCart + portionWeight > currentStock ? 'opacity-40 cursor-not-allowed' : ''}"
-                    ${currentUsageInCart + portionWeight > currentStock ? 'disabled' : ''}
+                    onclick="${isSubmitting ? '' : `addToCart('${item.id}')`}" 
+                    ${isSubmitting || (currentUsageInCart + portionWeight > currentStock) ? 'disabled' : ''} 
+                    class="w-6 h-6 rounded-full bg-white border border-brand-brown/20 flex items-center justify-center text-brand-peach font-extrabold hover:bg-brand-peach/10 transition disabled:opacity-40 disabled:cursor-not-allowed"
                   >+</button>
                 </div>
                 <div class="w-16 text-right font-extrabold text-xs text-brand-dark ml-2">
@@ -994,13 +1007,14 @@
                     <i data-lucide="shopping-bag" class="text-brand-peach w-5 h-5"></i>
                     <h3 class="text-md font-bold text-brand-dark uppercase tracking-wide">Ваш заказ (Стол №${state.tableNumber})</h3>
                   </div>
-                  <button onclick="closeConfirmOrderModal()" class="text-brand-brown hover:text-brand-dark">
+                  <button onclick="closeConfirmOrderModal()" ${isSubmitting ? 'disabled' : ''} class="text-brand-brown hover:text-brand-dark disabled:opacity-40">
                     <i data-lucide="x" class="w-5 h-5"></i>
                   </button>
                 </div>
                 
                 <p class="text-[10px] text-brand-brown font-semibold flex-shrink-0">Проверьте состав заказа. Вы можете отредактировать позиции перед отправкой.</p>
                 
+                <!-- Прокручиваемый список позиций с автоскроллом -->
                 <div class="space-y-2 overflow-y-auto pr-1 flex-1 min-h-0">
                   ${cartItemsHtml}
                 </div>
@@ -1014,16 +1028,21 @@
                   <div class="grid grid-cols-3 gap-2">
                     <button 
                       onclick="closeConfirmOrderModal()" 
-                      class="col-span-1 bg-white border border-brand-brown/20 text-brand-brown font-bold text-xs py-3 rounded-xl transition hover:bg-white/80"
+                      ${isSubmitting ? 'disabled' : ''}
+                      class="col-span-1 bg-white border border-brand-brown/20 text-brand-brown font-bold text-xs py-3 rounded-xl transition hover:bg-white/80 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Назад
                     </button>
                     <button 
                       id="confirmOrderSubmitBtn"
                       onclick="submitOrder()" 
-                      class="col-span-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white disabled:text-gray-200 font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-1.5 shadow-md"
+                      ${isSubmitting ? 'disabled' : ''}
+                      class="col-span-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white disabled:text-gray-200 font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-1.5 shadow-md disabled:cursor-not-allowed"
                     >
-                      <i data-lucide="check" class="w-3.5 h-3.5"></i> Всё верно, заказать
+                      ${isSubmitting 
+                        ? '<i data-lucide="loader" class="w-4 h-4 animate-spin text-white"></i> Отправка...' 
+                        : '<i data-lucide="check" class="w-3.5 h-3.5"></i> Всё верно, заказать'
+                      }
                     </button>
                   </div>
                 </div>
@@ -1102,6 +1121,7 @@
                     <p class="text-xs text-brand-brown">Стол №${state.tableNumber}</p>
                   </div>
 
+                  <!-- Прокручиваемый список истории счетов -->
                   <div class="space-y-2.5 overflow-y-auto flex-1 pr-1 no-scrollbar my-2 min-h-0">
                     ${myOrdersHtml}
                   </div>
@@ -1144,6 +1164,7 @@
         }
 
         container.innerHTML = `
+          <!-- Upper Navbar -->
           <header class="bg-brand-dark text-brand-cream px-4 py-4 sticky top-0 z-20 flex justify-between items-center shadow-md">
             <div class="flex items-center gap-2">
               <div>
@@ -1153,6 +1174,7 @@
             </div>
             
             <div class="flex items-center gap-2">
+              <!-- Иконка чека (счета) гостя -->
               <button 
                 onclick="toggleGuestHistoryModal(true)" 
                 class="bg-brand-brown p-2 rounded-full border border-brand-peach/30 text-brand-cream hover:bg-brand-peach transition relative"
@@ -1175,20 +1197,25 @@
             </div>
           </header>
 
+          <!-- Плитка категорий меню -->
           <div class="sticky top-[58px] z-10 bg-brand-cream/95 backdrop-blur-md border-b border-brand-brown/10 p-3">
             <div class="grid grid-cols-2 gap-2">
               ${categoryTabsHtml}
             </div>
           </div>
 
+          <!-- Список блюд -->
           <main class="flex-1 p-4 space-y-3">
             ${itemsHtml}
           </main>
 
+          <!-- Нижняя часть с корзиной -->
           ${bottomCartHtml}
 
+          <!-- Окно предварительного просмотра перед отправкой -->
           ${confirmOrderModalHtml}
 
+          <!-- Окно истории заказов стола -->
           ${guestHistoryModalHtml}
         `;
       }
@@ -1323,6 +1350,7 @@
                     ${itemsListHtml}
                   </div>
 
+                  <!-- Статус "просит счет" -->
                   ${isWaiting ? `
                     <div class="text-center bg-red-50 text-red-600 text-xs font-extrabold py-2 px-3 rounded-xl border border-red-200 animate-pulse flex items-center justify-center gap-1.5">
                       <i data-lucide="credit-card" class="w-4 h-4"></i> ГОСТЬ ПРОСИТ СЧЕТ!
@@ -1384,6 +1412,7 @@
                   onclick="selectAdminTable('${group.table}')"
                   class="aspect-square rounded-2xl border flex flex-col justify-between p-3.5 text-left shadow-sm active:scale-95 transition relative ${cardClasses}"
                 >
+                  <!-- Номер стола и верхний индикатор "Просит расчет" -->
                   <div class="flex justify-between items-start w-full">
                     <span class="text-xs font-black uppercase tracking-wide bg-brand-cream/60 px-2 py-0.5 rounded-lg text-brand-dark">
                       № ${group.table}
@@ -1396,6 +1425,7 @@
                     ` : ''}
                   </div>
                   
+                  <!-- Итоговая информация по столу снизу плашки -->
                   <div class="w-full mt-auto">
                     <div class="text-[9px] text-brand-brown/60 font-bold leading-tight">
                       ${group.orders.length} ${group.orders.length === 1 ? 'заказ' : group.orders.length < 5 ? 'заказа' : 'заказов'}
@@ -1419,7 +1449,7 @@
           }
         }
 
-        // Вкладка "Управление остатками"
+        // Вкладка "Управление остатками" (Кнопки и ввод перенесены под название)
         else if (state.adminTab === 'inventory') {
           let inventoryListHtml = '';
 
@@ -1458,10 +1488,12 @@
 
                 return `
                   <div class="p-3 bg-brand-cream/10 rounded-xl border border-brand-brown/5 flex flex-col gap-2.5">
+                    <!-- Название товара на всю доступную ширину строки -->
                     <div class="w-full">
                       <h4 class="text-xs font-black text-brand-dark leading-tight">${stock.displayName}</h4>
                     </div>
                     
+                    <!-- Управление остатками порций (Остаток + Поле + Стоп) теперь под названием -->
                     <div class="flex items-center gap-1.5 w-full pt-1 border-t border-brand-brown/5">
                       <div class="flex items-center bg-white border border-brand-brown/20 rounded-lg px-2 py-1 gap-1 shadow-sm flex-1 justify-center">
                         <span class="text-[10px] text-brand-brown/60 font-semibold">Остаток:</span>
@@ -1585,6 +1617,7 @@
                 <p class="text-xs text-brand-brown font-bold text-sm">Стол №${state.selectedBillOrder.table}</p>
               </div>
 
+              <!-- Прокручиваемый список позиций в чеке -->
               <div class="py-4 space-y-2 border-b border-dashed border-brand-brown/30 overflow-y-auto flex-1 min-h-0 my-2 pr-1">
                 ${state.selectedBillOrder.items.map(item => `
                   <div class="flex justify-between text-xs">
@@ -1599,6 +1632,7 @@
                 <span class="text-lg font-black text-brand-peach">${state.selectedBillOrder.total} ₽</span>
               </div>
 
+              <!-- Только одна чистая кнопка закрытия во всю ширину -->
               <div class="flex-shrink-0">
                 <button 
                   onclick="closeBillModal()" 
@@ -1647,6 +1681,7 @@
                     </div>
                   </div>
 
+                  <!-- Полный объединенный список блюд стола -->
                   <div class="overflow-y-auto flex-1 my-3 pr-1">
                     <div class="text-[10px] text-brand-brown/60 font-bold uppercase tracking-wider mb-2">Общий заказ стола:</div>
                     <div class="space-y-1">
@@ -1661,12 +1696,14 @@
                     <span class="text-lg font-black text-brand-peach">${group.total} ₽</span>
                   </div>
 
+                  <!-- Статус «просит счет» -->
                   ${isWaiting ? `
                     <div class="text-center bg-red-50 text-red-600 text-xs font-extrabold py-2.5 px-3 rounded-xl border border-red-200 animate-pulse flex items-center justify-center gap-1.5">
                       <i data-lucide="credit-card" class="w-4 h-4 animate-bounce"></i> ГОСТЬ СТОЛА ПРОСИТ РАСЧЕТ!
                     </div>
                   ` : ''}
 
+                  <!-- Действия над столом -->
                   <div class="space-y-2">
                     <button 
                       onclick="payAllOrdersForTable(${group.table})" 
@@ -1688,6 +1725,7 @@
         }
 
         container.innerHTML = `
+          <!-- Шапка админки -->
           <header class="bg-brand-dark text-brand-cream px-4 py-4 sticky top-0 z-20 flex justify-between items-center shadow-md">
             <div class="flex items-center gap-2">
               <i data-lucide="terminal" class="w-5 h-5 text-brand-peach"></i>
@@ -1701,14 +1739,18 @@
             </button>
           </header>
 
+          <!-- Табы Новые / Столы / Остатки / Архив -->
           ${tabsHtml}
 
+          <!-- Основной контент (Список заказов или панель складов) -->
           <main class="flex-1 p-4 space-y-4 overflow-y-auto">
             ${ordersHtml}
           </main>
 
+          <!-- Модальное окно чека архива -->
           ${billModalHtml}
 
+          <!-- Детальное окно просмотра стола по тапу -->
           ${tableDetailModalHtml}
         `;
       }
