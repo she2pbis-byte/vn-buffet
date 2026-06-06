@@ -214,11 +214,12 @@
 "title": "Десерты",
 "items": [
 { "id": "des_1", "name": "Макрони", "price": 250, "description": "Набор из 3-х штук", "available": true },
-{ "id": "des_2", "name": "Эклер", "price": 100, "description": "Ваниль / шоколад", "available": true },
-{ "id": "des_3", "name": "Корзиночка Восточная", "price": 110, "description": "С сухофруктамм", "available": true },
-{ "id": "des_4", "name": "Медовик", "price": 80, "description": "-", "available": true },
-{ "id": "des_4", "name": "Брауни", "price": 80, "description": "-", "available": true },
-{ "id": "des_4", "name": "Красный бархат", "price": 90, "description": "-", "available": true }
+{ "id": "des_2", "name": "Эклер Ванильный", "price": 100, "description": "-", "available": true },
+{ "id": "des_2", "name": "Эклер Шоколадный", "price": 100, "description": "-", "available": true },
+{ "id": "des_4", "name": "Корзиночка Восточная", "price": 110, "description": "С сухофруктамм", "available": true },
+{ "id": "des_5", "name": "Медовик", "price": 80, "description": "-", "available": true },
+{ "id": "des_6", "name": "Брауни", "price": 80, "description": "-", "available": true },
+{ "id": "des_7", "name": "Красный бархат", "price": 90, "description": "-", "available": true }
 ]
 }
 ]
