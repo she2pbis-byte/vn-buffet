@@ -124,90 +124,6 @@
       isSubmittingOrder: false, // Флаг процесса отправки заказа в базу данных
     };
 
-    // --- Контроль звуковых сигналов на стороне Администратора ---
-    // Храним ID известных заказов и ID тех, кто запрашивал счет, чтобы звенеть только при изменениях
-    let knownOrderIds = new Set();
-    let knownWaitingPayOrderIds = new Set();
-    let audioCtx = null;
-
-    // --- Генерация звука на Web Audio API ---
-    // Это исключает зависимость от внешних mp3-файлов, которые часто блокируются политикой CORS или сетью
-    function playNotificationSound(type) {
-      try {
-        // Инициализация аудиоконтекста по клику (требование браузеров)
-        if (!audioCtx) {
-          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        }
-        if (audioCtx.state === 'suspended') {
-          audioCtx.resume();
-        }
-
-        if (type === 'new_order') {
-          // Двойной перезвон "Динь-Дон"
-          const now = audioCtx.currentTime;
-          
-          // Первый тон (Динь)
-          const osc1 = audioCtx.createOscillator();
-          const gain1 = audioCtx.createGain();
-          osc1.type = 'sine';
-          osc1.frequency.setValueAtTime(880, now); // Ля 2-й октавы
-          gain1.gain.setValueAtTime(0, now);
-          gain1.gain.linearRampToValueAtTime(0.2, now + 0.05);
-          gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
-          osc1.connect(gain1);
-          gain1.connect(audioCtx.destination);
-          osc1.start(now);
-          osc1.stop(now + 0.4);
-
-          // Второй тон (Дон) с задержкой
-          const osc2 = audioCtx.createOscillator();
-          const gain2 = audioCtx.createGain();
-          osc2.type = 'sine';
-          osc2.frequency.setValueAtTime(659.25, now + 0.15); // Ми 2-й октавы
-          gain2.gain.setValueAtTime(0, now + 0.15);
-          gain2.gain.linearRampToValueAtTime(0.2, now + 0.2);
-          gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
-          osc2.connect(gain2);
-          gain2.connect(audioCtx.destination);
-          osc2.start(now + 0.15);
-          osc2.stop(now + 0.65);
-        } 
-        else if (type === 'request_bill') {
-          // Настойчивый тройной сигнал предупреждения "Пик-Пик-Пик"
-          const now = audioCtx.currentTime;
-          const toneDuration = 0.12;
-          const silenceDuration = 0.08;
-
-          for (let i = 0; i < 3; i++) {
-            const startTime = now + i * (toneDuration + silenceDuration);
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(523.25, startTime); // До 2-й октавы
-            gain.gain.setValueAtTime(0, startTime);
-            gain.gain.linearRampToValueAtTime(0.25, startTime + 0.02);
-            gain.gain.exponentialRampToValueAtTime(0.001, startTime + toneDuration);
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.start(startTime);
-            osc.stop(startTime + toneDuration);
-          }
-        }
-      } catch (err) {
-        console.warn('Audio Context не был запущен или заблокирован браузером:', err);
-      }
-    }
-
-    // Включаем аудио-контекст при любой активности администратора
-    function unlockAudio() {
-      if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      }
-      if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-      }
-    }
-
     // --- Системные константы ---
     const ADMIN_PASSWORD = "56165616";
     const MIN_TABLE = 1;
@@ -244,7 +160,6 @@
     // Глобальные функции для управления остатками (Inventory)
     window.setStockZero = setStockZero;
     window.handleManualStockInput = handleManualStockInput;
-    window.unlockAudio = unlockAudio;
 
     // --- Вспомогательная функция уведомлений в UI ---
     function showNotification(message, type = 'info') {
@@ -336,25 +251,8 @@
 
       onSnapshot(q, (snapshot) => {
         const fetchedOrders = [];
-        let hasNewUnseenOrder = false;
-        let hasNewUnseenWaitingBill = false;
-
         snapshot.forEach((doc) => {
-          const orderData = doc.data();
-          const orderId = doc.id;
-          fetchedOrders.push({ id: orderId, ...orderData });
-
-          // Если мы находимся в режиме администратора, отслеживаем новые события для проигрывания звуков
-          if (state.screen === 'admin_panel') {
-            // 1. Проверяем новые заказы (статус 'new' и его еще не было в нашем списке)
-            if (orderData.status === 'new' && !knownOrderIds.has(orderId)) {
-              hasNewUnseenOrder = true;
-            }
-            // 2. Проверяем новые запросы счета (waitingForPay равен true, и этого заказа еще не было в списке просящих расчет)
-            if (orderData.waitingForPay === true && !knownWaitingPayOrderIds.has(orderId)) {
-              hasNewUnseenWaitingBill = true;
-            }
-          }
+          fetchedOrders.push({ id: doc.id, ...doc.data() });
         });
 
         // Сортировка: сначала те, кто ждет оплату (waitingForPay), затем по времени создания (новые вверху)
@@ -366,28 +264,6 @@
           }
           return new Date(b.timestamp) - new Date(a.timestamp);
         });
-
-        // Запоминаем текущие ID для следующего шага
-        const currentOrderIds = new Set();
-        const currentWaitingBillIds = new Set();
-        fetchedOrders.forEach(o => {
-          currentOrderIds.add(o.id);
-          if (o.waitingForPay) {
-            currentWaitingBillIds.add(o.id);
-          }
-        });
-
-        // Если это не первая загрузка приложения и мы в админке — воспроизводим звуки
-        if (state.screen === 'admin_panel' && knownOrderIds.size > 0) {
-          if (hasNewUnseenOrder) {
-            playNotificationSound('new_order');
-          } else if (hasNewUnseenWaitingBill) {
-            playNotificationSound('request_bill');
-          }
-        }
-
-        knownOrderIds = currentOrderIds;
-        knownWaitingPayOrderIds = currentWaitingBillIds;
 
         state.orders = fetchedOrders;
         render();
@@ -431,6 +307,40 @@
       }, (error) => {
         console.error("Ошибка при чтении Firestore (остатки):", error);
       });
+    }
+
+    // Обработка ручного ввода числа в инпут
+    async function handleManualStockInput(stockId, value) {
+      if (!state.user) return;
+      
+      let parsed = parseInt(value.replace(/\D/g, ''), 10);
+      
+      if (isNaN(parsed) || parsed < 0) {
+        parsed = 0;
+      }
+      if (parsed > 999) {
+        parsed = 999;
+      }
+
+      try {
+        const itemDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'inventory', stockId);
+        await setDoc(itemDocRef, { stock: parsed }, { merge: true });
+        showNotification(`Остаток установлен: ${parsed} порц.`, 'success');
+      } catch (error) {
+        console.error("Ошибка записи ручного ввода остатка:", error);
+        showNotification('Ошибка обновления остатка', 'error');
+      }
+    }
+
+    async function setStockZero(stockId) {
+      if (!state.user) return;
+      try {
+        const itemDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'inventory', stockId);
+        await setDoc(itemDocRef, { stock: 0 }, { merge: true });
+        showNotification('Позиция переведена в стоп-лист', 'info');
+      } catch (error) {
+        console.error("Ошибка добавления в стоп-лист:", error);
+      }
     }
 
     // Расчет текущей загруженности корзины по конкретному складу
@@ -479,7 +389,6 @@
 
     // Изменение вкладок панели администратора
     function switchAdminTab(tabName) {
-      unlockAudio(); // Активируем аудио-контекст при кликах в панели сотрудника
       state.adminTab = tabName;
       state.selectedAdminTable = null;
       render();
@@ -487,7 +396,6 @@
 
     // Выбор стола для детального просмотра в админке
     function selectAdminTable(tableNum) {
-      unlockAudio();
       state.selectedAdminTable = String(tableNum);
       render();
     }
@@ -625,7 +533,6 @@
       if (passInput === ADMIN_PASSWORD) {
         state.screen = 'admin_panel';
         localStorage.setItem('bufet_role', 'admin');
-        unlockAudio(); // Активируем звук по клику входа
         render();
       } else {
         showNotification('Неверный пароль администратора!', 'error');
@@ -638,7 +545,7 @@
       render();
     }
 
-    // --- Оптимизированная функция отправки заказа с анимацией загрузки ---
+    // --- Исправленная функция отправки нового заказа с анимацией загрузки ---
     async function submitOrder() {
       if (Object.keys(state.cart).length === 0) return;
       if (state.isSubmittingOrder) return; // Защита от случайных повторных кликов
@@ -724,7 +631,6 @@
     // Обновление статуса заказа в Firestore
     async function updateOrderStatus(orderId, newStatus) {
       if (!state.user) return;
-      unlockAudio();
       try {
         const orderDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId);
         await updateDoc(orderDocRef, { status: newStatus });
@@ -742,7 +648,6 @@
     // Оплата всех заказов стола разом с физическим объединением
     async function payAllOrdersForTable(tableNum) {
       if (!state.user) return;
-      unlockAudio();
 
       const activeTableOrders = state.orders.filter(
         order => String(order.table) === String(tableNum) && order.status !== 'paid'
@@ -790,7 +695,6 @@
     // Полное удаление заказа из базы данных Firestore
     async function deleteOrder(orderId) {
       if (!state.user) return;
-      unlockAudio();
       if (confirm('Вы уверены, что хотите окончательно удалить этот заказ из базы?')) {
         try {
           await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId));
@@ -804,7 +708,6 @@
 
     // Открытие чека
     function openBill(orderId) {
-      unlockAudio();
       const order = state.orders.find(o => o.id === orderId);
       if (order) {
         state.selectedBillOrder = order;
@@ -975,33 +878,40 @@
           `;
         }).join('') : '';
 
-        // Список блюд выбранной категории (С ИСКЛЮЧЕНИЕМ ТОВАРОВ С ОСТАТКОМ 0 / СТОП-ЛИСТ)
-        const filteredItems = currentCategory.items ? currentCategory.items.filter(item => {
-          const stockId = item.stockLinkId || item.id;
-          const currentStock = state.inventory[stockId] !== undefined ? state.inventory[stockId] : DEFAULT_STOCK;
-          return currentStock > 0; // ПРАВИЛО 1: Убираем из гостевой выдачи все позиции, остаток которых равен 0
-        }) : [];
-
-        const itemsHtml = filteredItems.length > 0 ? filteredItems.map(item => {
+        // Список блюд выбранной категории
+        const itemsHtml = currentCategory.items ? currentCategory.items.map(item => {
           const countInCart = state.cart[item.id] || 0;
+          
+          // Связываем остатки с общим складом по stockLinkId
           const stockId = item.stockLinkId || item.id;
           const currentStock = state.inventory[stockId] !== undefined ? state.inventory[stockId] : DEFAULT_STOCK;
           
           const portionWeight = item.portionWeight !== undefined ? item.portionWeight : 1;
           const currentUsageInCart = getStockUsageInCart(stockId);
 
+          // Проверка: достаточно ли порций осталось для заказа хотя бы одной единицы этого товара
+          const isOutOfStock = currentStock < portionWeight;
+
           return `
-            <div class="bg-white p-4 rounded-2xl shadow-sm border border-brand-brown/5 flex gap-4 items-center justify-between transition hover:shadow">
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-brand-brown/5 flex gap-4 items-center justify-between transition hover:shadow ${isOutOfStock ? 'opacity-60' : ''}">
               <div class="flex-1 pr-2">
                 <h3 class="font-bold text-brand-dark text-sm leading-snug flex items-center gap-1.5 flex-wrap">
                   <span>${item.name}</span>
+                  ${isOutOfStock ? '<span class="text-[9px] bg-red-100 text-red-700 font-bold px-1.5 py-0.5 rounded">Закончилось</span>' : ''}
                 </h3>
                 <p class="text-xs text-brand-brown/80 mt-1 line-clamp-2">${item.description || ''}</p>
                 <div class="text-sm font-extrabold text-brand-peach mt-2">${item.price} ₽</div>
               </div>
               
               <div class="flex items-center">
-                ${countInCart > 0 ? `
+                ${isOutOfStock ? `
+                  <button 
+                    disabled 
+                    class="bg-gray-200 text-gray-400 text-xs font-bold px-3 py-2 rounded-full cursor-not-allowed"
+                  >
+                    Закончился
+                  </button>
+                ` : countInCart > 0 ? `
                   <div class="flex items-center bg-brand-cream/60 border border-brand-peach/30 rounded-full px-2 py-1 gap-3">
                     <button onclick="removeFromCart('${item.id}')" class="w-6 h-6 rounded-full bg-white flex items-center justify-center text-brand-peach font-bold hover:bg-brand-peach/10 active:scale-95 transition">-</button>
                     <span class="font-bold text-sm w-4 text-center text-brand-dark">${countInCart}</span>
@@ -1022,12 +932,7 @@
               </div>
             </div>
           `;
-        }).join('') : `
-          <div class="text-center py-12 px-4 bg-white/50 border border-brand-brown/10 rounded-2xl">
-            <i data-lucide="beer" class="w-10 h-10 text-brand-brown/30 mx-auto mb-2"></i>
-            <p class="text-xs text-brand-brown font-semibold">В этой категории все позиции временно закончились.</p>
-          </div>
-        `;
+        }).join('') : '';
 
         // Нижняя панель корзины (всплывает, если корзина не пуста)
         const cartCount = getCartCount();
@@ -1544,7 +1449,7 @@
           }
         }
 
-        // Вкладка "Управление остатками"
+        // Вкладка "Управление остатками" (Кнопки и ввод перенесены под название)
         else if (state.adminTab === 'inventory') {
           let inventoryListHtml = '';
 
@@ -1582,13 +1487,13 @@
                 const currentStockPortions = state.inventory[stock.stockId] !== undefined ? state.inventory[stock.stockId] : DEFAULT_STOCK;
 
                 return `
-                  <div class="p-3 bg-brand-cream/10 rounded-xl border border-brand-brown/5 flex flex-col gap-2.5 animate-fade-in">
+                  <div class="p-3 bg-brand-cream/10 rounded-xl border border-brand-brown/5 flex flex-col gap-2.5">
                     <!-- Название товара на всю доступную ширину строки -->
                     <div class="w-full">
                       <h4 class="text-xs font-black text-brand-dark leading-tight">${stock.displayName}</h4>
                     </div>
                     
-                    <!-- Управление остатками порций под названием -->
+                    <!-- Управление остатками порций (Остаток + Поле + Стоп) теперь под названием -->
                     <div class="flex items-center gap-1.5 w-full pt-1 border-t border-brand-brown/5">
                       <div class="flex items-center bg-white border border-brand-brown/20 rounded-lg px-2 py-1 gap-1 shadow-sm flex-1 justify-center">
                         <span class="text-[10px] text-brand-brown/60 font-semibold">Остаток:</span>
@@ -1619,7 +1524,7 @@
               }).join('');
 
               return `
-                <div class="bg-white p-4 rounded-2xl border border-brand-brown/10 shadow-sm space-y-3">
+                <div class="bg-white p-4 rounded-2xl border border-brand-brown/10 shadow-sm space-y-3 animate-fade-in">
                   <h3 class="text-xs font-black text-brand-brown uppercase tracking-wider border-b border-brand-cream pb-1.5 flex items-center gap-1.5">
                     <i data-lucide="tag" class="w-3.5 h-3.5 text-brand-peach"></i>
                     ${catTitle}
