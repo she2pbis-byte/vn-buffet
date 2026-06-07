@@ -117,6 +117,7 @@
       inventory: {}, // Реальное количество порций на складе { itemId: count } из Firestore
       customNames: {}, // Динамически измененные сотрудником названия блюд { itemId: customName } из Firestore
       activeCategoryId: '',
+      activeSubcategoryId: '', // Активный виртуальный подраздел категории
       cart: {}, // Храним { itemId: quantity }
       orders: [], // Real-time список всех заказов из Firestore
       adminTab: 'new', // 'new' | 'served' | 'inventory' | 'archive'
@@ -155,6 +156,7 @@
     window.closeBillModal = closeBillModal;
     window.printBill = printBill;
     window.changeCategory = changeCategory;
+    window.changeSubcategory = changeSubcategory;
     window.closeConfirmOrderModal = closeConfirmOrderModal;
     window.toggleGuestHistoryModal = toggleGuestHistoryModal;
     window.logout = logout;
@@ -191,6 +193,12 @@
         
         if (state.menuData && state.menuData.categories.length > 0) {
           state.activeCategoryId = state.menuData.categories[0].id;
+          const firstCat = state.menuData.categories[0];
+          if (firstCat.subcategories && firstCat.subcategories.length > 0) {
+            state.activeSubcategoryId = firstCat.subcategories[0].id;
+          } else {
+            state.activeSubcategoryId = '';
+          }
         }
 
         // 2. Авторизация в Firebase
@@ -271,12 +279,12 @@
           fetchedOrders.push({ id: doc.id, ...doc.data() });
         });
 
-        // Сортировка: сначала те, кто ждет оплату (waitingForPay), затем по времени создания (новые вверху)
+        // Сортировка: сначала те, кто ждет оплату (waitingForPay), затем по времени создания
         fetchedOrders.sort((a, b) => {
           const aWait = a.waitingForPay ? 1 : 0;
           const bWait = b.waitingForPay ? 1 : 0;
           if (aWait !== bWait) {
-            return bWait - aWait; // Те, кто ждет оплату, идут в самый верх
+            return bWait - aWait;
           }
           return new Date(b.timestamp) - new Date(a.timestamp);
         });
@@ -346,7 +354,6 @@
     function startEditingName(itemId) {
       state.editingItemId = itemId;
       render();
-      // Фокусируемся на инпуте
       setTimeout(() => {
         const input = document.getElementById(`input-name-${itemId}`);
         if (input) {
@@ -378,13 +385,12 @@
       }
     }
 
-    // Отмена изменения названия
     function cancelEditingName() {
       state.editingItemId = null;
       render();
     }
 
-    // Обработка ручного ввода числа в остаток
+    // Обработка ручного остатка
     async function handleManualStockInput(stockId, value) {
       if (!state.user) return;
       
@@ -434,7 +440,7 @@
       return usage;
     }
 
-    // --- Добавление товара в корзину с учетом порционных весов ---
+    // Добавление товара в корзину
     function addToCart(itemId) {
       if (state.isSubmittingOrder) return;
 
@@ -447,7 +453,6 @@
       const portionWeight = item.portionWeight !== undefined ? item.portionWeight : 1;
       const currentUsageInCart = getStockUsageInCart(stockId);
 
-      // Проверяем, хватит ли порций в бутылке/бокале для еще одного добавления
       if (currentUsageInCart + portionWeight > currentStock) {
         if (portionWeight > 1) {
           showNotification(`Недостаточно порций вина для целой бутылки! На складе осталось: ${currentStock - currentUsageInCart} порц.`, 'error');
@@ -468,7 +473,7 @@
       render();
     }
 
-    // Выбор стола для детального просмотра в админке
+    // Выбор стола в админке
     function selectAdminTable(tableNum) {
       state.selectedAdminTable = String(tableNum);
       render();
@@ -529,7 +534,6 @@
     // Вспомогательная функция для генерации одинаковой верстки списка позиций во всех счетах
     function generateBillItemsMarkup(items) {
       return items.map(item => {
-        // Находим оригинальную сущность элемента меню для корректного отображения переименованного названия
         const originalItem = findMenuItem(item.id);
         const displayName = originalItem ? getItemName(originalItem) : item.name;
         
@@ -545,11 +549,30 @@
       }).join('');
     }
 
-    // Переключение категории с фокусом на начало списка
+    // Переключение категории с автоматической плавной прокруткой к верху списка
     function changeCategory(catId) {
       state.activeCategoryId = catId;
+      
+      const category = state.menuData && state.menuData.categories 
+        ? state.menuData.categories.find(c => c.id === catId) 
+        : null;
+
+      if (category && category.subcategories && category.subcategories.length > 0) {
+        state.activeSubcategoryId = category.subcategories[0].id;
+      } else {
+        state.activeSubcategoryId = '';
+      }
+
       render();
-      // Фокусировка на начало списка при переходе по разделам
+      // Фокусировка на начало списка при смене категории
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Переключение подкатегории у гостя
+    function changeSubcategory(subId) {
+      state.activeSubcategoryId = subId;
+      render();
+      // Фокусировка на начало списка при смене подразделов внутри категории
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -679,7 +702,7 @@
           const item = findMenuItem(itemId);
           return {
             id: itemId,
-            name: getItemName(item), // Сохраняем имя (с учетом кастомного) в объекте заказа
+            name: getItemName(item), 
             price: Number(item.price),
             count: Number(count)
           };
@@ -956,13 +979,13 @@
           ? (state.menuData.categories.find(c => c.id === state.activeCategoryId) || state.menuData.categories[0])
           : { title: '', items: [] };
 
-        // Категории выводятся в виде симметричной сетки (2 колонки)
+        // Сетка категорий (3 колонки для оптимизации высоты)
         const categoryTabsHtml = state.menuData && state.menuData.categories ? state.menuData.categories.map(cat => {
           const isActive = cat.id === state.activeCategoryId;
           return `
             <button 
               onclick="changeCategory('${cat.id}')" 
-              class="w-full h-11 px-2 flex items-center justify-center rounded-xl text-center text-[11px] leading-tight font-extrabold transition-all border ${
+              class="w-full h-11 px-1 flex items-center justify-center rounded-xl text-center text-[10px] leading-tight font-extrabold transition-all border ${
                 isActive 
                   ? 'bg-brand-peach text-white border-brand-peach shadow-sm' 
                   : 'bg-white text-brand-brown border-brand-brown/10 hover:bg-white/80'
@@ -973,39 +996,68 @@
           `;
         }).join('') : '';
 
-        // Список блюд выбранной категории (отфильтрованный: скрываем позиции с нулевым остатком для гостей)
+        // Вывод виртуальных подразделов, если они есть у текущей категории
+        let subcategoriesHtml = '';
+        if (currentCategory.subcategories && currentCategory.subcategories.length > 0) {
+          const subTabs = currentCategory.subcategories.map(sub => {
+            const isSubActive = sub.id === state.activeSubcategoryId;
+            return `
+              <button 
+                onclick="changeSubcategory('${sub.id}')" 
+                class="px-3 py-1.5 rounded-full text-[10px] font-bold border transition ${
+                  isSubActive 
+                    ? 'bg-brand-brown text-white border-brand-brown shadow-sm' 
+                    : 'bg-white/60 text-brand-brown/80 border-brand-brown/10 hover:bg-white'
+                }"
+              >
+                ${sub.title}
+              </button>
+            `;
+          }).join('');
+
+          subcategoriesHtml = `
+            <div class="flex gap-2 py-2 px-1 overflow-x-auto no-scrollbar border-t border-brand-brown/5 bg-brand-cream/40 flex-wrap justify-center">
+              ${subTabs}
+            </div>
+          `;
+        }
+
+        // Фильтрация блюд с учетом остатков и выбранного подраздела (если подразделы заданы в категории)
         let itemsHtml = '';
         if (currentCategory.items) {
-          const availableItems = currentCategory.items.filter(item => {
+          let filteredItems = currentCategory.items.filter(item => {
             const stockId = item.stockLinkId || item.id;
             const currentStock = state.inventory[stockId] !== undefined ? state.inventory[stockId] : DEFAULT_STOCK;
             const portionWeight = item.portionWeight !== undefined ? item.portionWeight : 1;
             return currentStock >= portionWeight && currentStock > 0;
           });
 
-          if (availableItems.length === 0) {
+          // Если у категории есть подразделы, дополнительно фильтруем по выбранной подкатегории
+          if (currentCategory.subcategories && currentCategory.subcategories.length > 0 && state.activeSubcategoryId) {
+            filteredItems = filteredItems.filter(item => item.subcategory === state.activeSubcategoryId);
+          }
+
+          if (filteredItems.length === 0) {
             itemsHtml = `
               <div class="text-center py-12 px-4 bg-white rounded-2xl border border-brand-brown/5 shadow-sm">
                 <i data-lucide="sparkles" class="w-8 h-8 text-brand-peach/45 mx-auto mb-2"></i>
                 <p class="text-xs text-brand-brown font-semibold">Позиции отсутствуют</p>
-                <p class="text-[10px] text-brand-brown/60 mt-0.5">Выберите другую категорию</p>
+                <p class="text-[10px] text-brand-brown/60 mt-0.5">Выберите другой подраздел</p>
               </div>
             `;
           } else {
-            itemsHtml = availableItems.map(item => {
+            itemsHtml = filteredItems.map(item => {
               const countInCart = state.cart[item.id] || 0;
               
-              // Связываем остатки с общим складом по stockLinkId
               const stockId = item.stockLinkId || item.id;
               const currentStock = state.inventory[stockId] !== undefined ? state.inventory[stockId] : DEFAULT_STOCK;
               
               const portionWeight = item.portionWeight !== undefined ? item.portionWeight : 1;
               const currentUsageInCart = getStockUsageInCart(stockId);
 
-              // Получение динамически измененного названия
               const displayName = getItemName(item);
 
-              // Снижение высоты плашки за счет регулировки внутренних полей и отступов: py-3 вместо py-4, уменьшены mt
+              // Высота плашек уменьшена за счет py-3 вместо py-4 и корректировки отступов (сохраняем шрифты!)
               return `
                 <div class="bg-white py-3 px-4 rounded-2xl shadow-sm border border-brand-brown/5 flex gap-3 items-center justify-between transition hover:shadow">
                   <div class="flex-1 pr-2">
@@ -1042,7 +1094,7 @@
           }
         }
 
-        // Нижняя панель корзины (всплывает, если корзина не пуста)
+        // Нижняя панель корзины
         const cartCount = getCartCount();
         const cartTotal = getCartTotal();
         const bottomCartHtml = cartCount > 0 ? `
@@ -1161,7 +1213,7 @@
           `;
         }
 
-        // Всплывающее окно истории заказов и запроса оплаты гостя
+        // Всплывающее окно истории заказов стола
         let guestHistoryModalHtml = '';
         if (state.showGuestHistoryModal) {
           const myOrders = state.orders.filter(o => String(o.table) === String(state.tableNumber));
@@ -1206,7 +1258,6 @@
                     <span class="text-[10px] text-brand-brown/60">${formattedTime}</span>
                   </div>
                   
-                  <!-- Унифицированный список позиций -->
                   <div class="space-y-1">
                     ${generateBillItemsMarkup(order.items)}
                   </div>
@@ -1313,11 +1364,14 @@
             </div>
           </header>
 
-          <!-- Плитка категорий меню -->
+          <!-- Плитка категорий меню (оптимизирована под 3 колонки для уменьшения высоты на мобильных) -->
           <div class="sticky top-[58px] z-10 bg-brand-cream/95 backdrop-blur-md border-b border-brand-brown/10 p-3">
-            <div class="grid grid-cols-2 gap-2">
+            <div class="grid grid-cols-3 gap-2">
               ${categoryTabsHtml}
             </div>
+            
+            <!-- Рендер подкатегорий, если они есть у текущей категории -->
+            ${subcategoriesHtml}
           </div>
 
           <!-- Список блюд -->
@@ -1513,7 +1567,6 @@
               </div>
             `;
           } else {
-            // Сортировка: сначала те столы, гости которых просят счет
             const sortedTables = activeTablesList.sort((a, b) => {
               const aWait = a.waitingForPay ? 1 : 0;
               const bWait = b.waitingForPay ? 1 : 0;
@@ -1566,7 +1619,7 @@
           }
         }
 
-        // Вкладка "Управление остатками" (Редактирование названий прямо по тапу на заголовок)
+        // Вкладка "Управление остатками"
         else if (state.adminTab === 'inventory') {
           let inventoryListHtml = '';
 
@@ -1581,18 +1634,28 @@
                 if (!processedStockIds.has(stockId)) {
                   processedStockIds.add(stockId);
 
+                  // Ищем текстовое обозначение подкатегории для наглядности
+                  let subcategoryTitle = '';
+                  if (category.subcategories && item.subcategory) {
+                    const sub = category.subcategories.find(s => s.id === item.subcategory);
+                    if (sub) {
+                      subcategoryTitle = sub.title;
+                    }
+                  }
+
                   stockItemsList.push({
                     itemId: item.id,
                     stockId,
                     rawName: item.name,
                     categoryTitle: category.title,
+                    subcategoryTitle: subcategoryTitle,
                     itemReference: item
                   });
                 }
               });
             });
 
-            // Группировка
+            // Группировка складов по глобальным категориям
             const categoriesWithStocks = {};
             stockItemsList.forEach(stock => {
               if (!categoriesWithStocks[stock.categoryTitle]) {
@@ -1615,7 +1678,7 @@
 
                 return `
                   <div class="p-3 bg-brand-cream/10 rounded-xl border border-brand-brown/5 flex flex-col gap-2.5">
-                    <!-- Заголовок товара -->
+                    <!-- Заголовок товара и его виртуальный подраздел (при наличии) -->
                     <div class="w-full">
                       ${isEditing ? `
                         <div class="flex items-center gap-1">
@@ -1644,7 +1707,14 @@
                           class="group flex items-center gap-1.5 cursor-pointer hover:bg-brand-peach/10 p-1 rounded transition"
                           title="Нажмите, чтобы изменить название блюда"
                         >
-                          <h4 class="text-xs font-black text-brand-dark leading-tight flex-1">${currentDisplayName}</h4>
+                          <div class="flex-1">
+                            <h4 class="text-xs font-black text-brand-dark leading-tight">${currentDisplayName}</h4>
+                            ${stock.subcategoryTitle ? `
+                              <span class="text-[9px] bg-brand-peach/10 text-brand-peach px-1.5 py-0.2 rounded font-semibold mt-0.5 inline-block">
+                                ${stock.subcategoryTitle}
+                              </span>
+                            ` : ''}
+                          </div>
                           <i data-lucide="edit-3" class="w-3 h-3 text-brand-brown/40 group-hover:text-brand-peach transition-colors flex-shrink-0"></i>
                         </div>
                       `}
@@ -1730,7 +1800,6 @@
                     </div>
                   </div>
                   
-                  <!-- Унифицированный список позиций -->
                   <div class="space-y-1">
                     ${generateBillItemsMarkup(order.items)}
                   </div>
@@ -1760,7 +1829,7 @@
           }
         }
 
-        // Модальное окно административного чека (Единый Стиль счетов)
+        // Модальное окно административного чека
         const billModalHtml = state.selectedBillOrder ? `
           <div class="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-50 flex items-start justify-center p-4 pb-24 overflow-y-auto">
             <div class="bg-brand-cream border-2 border-brand-brown p-5 rounded-3xl w-full max-w-sm shadow-2xl relative max-h-[80vh] flex flex-col justify-between my-4 animate-fade-in">
@@ -1773,7 +1842,6 @@
                 <p class="text-xs font-bold text-brand-brown mt-2.5">Стол №${state.selectedBillOrder.table}</p>
               </div>
 
-              <!-- Унифицированный список позиций -->
               <div class="overflow-y-auto flex-1 my-3 pr-1">
                 <div class="text-[10px] text-brand-brown/60 font-bold uppercase tracking-wider mb-2">Общий заказ стола:</div>
                 <div class="space-y-1">
@@ -1826,7 +1894,6 @@
                     </div>
                   </div>
 
-                  <!-- Полный объединенный список блюд стола -->
                   <div class="overflow-y-auto flex-1 my-3 pr-1">
                     <div class="text-[10px] text-brand-brown/60 font-bold uppercase tracking-wider mb-2">Общий заказ стола:</div>
                     <div class="space-y-1">
@@ -1841,14 +1908,12 @@
                     <span class="text-lg font-black text-brand-peach">${group.total} ₽</span>
                   </div>
 
-                  <!-- Статус «просит счет» -->
                   ${isWaiting ? `
                     <div class="text-center bg-red-50 text-red-600 text-xs font-extrabold py-2.5 px-3 rounded-xl border border-red-200 animate-pulse flex items-center justify-center gap-1.5">
                       <i data-lucide="credit-card" class="w-4 h-4 animate-bounce"></i> ГОСТЬ СТОЛА ПРОСИТ РАСЧЕТ!
                     </div>
                   ` : ''}
 
-                  <!-- Действия над столом -->
                   <div class="space-y-2">
                     <button 
                       onclick="payAllOrdersForTable(${group.table})" 
