@@ -935,24 +935,31 @@
           ? (state.menuData.categories.find(c => c.id === state.activeCategoryId) || state.menuData.categories[0])
           : { title: '', items: [] };
 
-        // Сетка категорий (3 колонки для оптимизации высоты)
+        // Сетка категорий (3 колонки для оптимизации высоты). 
+        // Названия увеличены на 30% (изменен класс text-[10px] -> text-[13px]).
+        // Реализована замена «Безалкогольные напитки» на «Напитки»
         const categoryTabsHtml = state.menuData && state.menuData.categories ? state.menuData.categories.map(cat => {
           const isActive = cat.id === state.activeCategoryId;
+          let displayTitle = cat.title;
+          if (displayTitle === 'Безалкогольные напитки') {
+            displayTitle = 'Напитки';
+          }
           return `
             <button 
               onclick="changeCategory('${cat.id}')" 
-              class="w-full h-11 px-1 flex items-center justify-center rounded-xl text-center text-[10px] leading-tight font-extrabold transition-all border ${
+              class="w-full h-11 px-1 flex items-center justify-center rounded-xl text-center text-[13px] leading-tight font-extrabold transition-all border ${
                 isActive 
                   ? 'bg-brand-peach text-white border-brand-peach shadow-sm' 
                   : 'bg-white text-brand-brown border-brand-brown/10 hover:bg-white/80'
               }"
             >
-              ${cat.title}
+              ${displayTitle}
             </button>
           `;
         }).join('') : '';
 
-        // Вывод виртуальных подразделов, если они есть у текущей категории
+        // Вывод виртуальных подразделов, если они есть у текущей категории.
+        // Шрифт увеличен на 30% (изменен класс text-[10px] -> text-[13px])
         let subcategoriesHtml = '';
         if (currentCategory.subcategories && currentCategory.subcategories.length > 0) {
           const subTabs = currentCategory.subcategories.map(sub => {
@@ -960,7 +967,7 @@
             return `
               <button 
                 onclick="changeSubcategory('${sub.id}')" 
-                class="px-3 py-1.5 rounded-full text-[10px] font-bold border transition ${
+                class="px-3 py-1.5 rounded-full text-[13px] font-bold border transition ${
                   isSubActive 
                     ? 'bg-brand-brown text-white border-brand-brown shadow-sm' 
                     : 'bg-white/60 text-brand-brown/80 border-brand-brown/10 hover:bg-white'
@@ -1281,13 +1288,19 @@
           `;
         }
 
+        // Текущая категория для хедера (замена «Безалкогольные напитки» на «Напитки»)
+        let headerCategoryTitle = currentCategory.title || '';
+        if (headerCategoryTitle === 'Безалкогольные напитки') {
+          headerCategoryTitle = 'Напитки';
+        }
+
         container.innerHTML = `
           <!-- Upper Navbar -->
           <header class="bg-brand-dark text-brand-cream px-4 py-4 sticky top-0 z-20 flex justify-between items-center shadow-md">
             <div class="flex items-center gap-2">
               <div>
                 <h2 class="font-extrabold text-sm uppercase tracking-wide">БУФЕТ В КЗЦ</h2>
-                <p class="text-[10px] text-brand-cream/80">Раздел: ${currentCategory.title || ''}</p>
+                <p class="text-[10px] text-brand-cream/80 font-bold">Раздел: ${headerCategoryTitle}</p>
               </div>
             </div>
             
@@ -1304,9 +1317,9 @@
                 ` : ''}
               </button>
 
-              <!-- Индикатор стола в виде симметричного круглого элемента одинакового размера с кнопкой счета -->
+              <!-- Индикатор стола (шрифт увеличен на 30% с text-[13px] до text-[17px]) -->
               <div 
-                class="w-10 h-10 rounded-full bg-brand-brown flex flex-col items-center justify-center border border-brand-peach text-[13px] font-black shadow-inner"
+                class="w-10 h-10 rounded-full bg-brand-brown flex flex-col items-center justify-center border border-brand-peach text-[17px] font-black shadow-inner"
                 title="Ваш стол"
               >
                 ${state.tableNumber}
@@ -1573,7 +1586,7 @@
           }
         }
 
-        // Вкладка "Управление остатками" (Полностью статический заголовок, редактирование убрано)
+        // Вкладка "Управление остатками"
         else if (state.adminTab === 'inventory') {
           let inventoryListHtml = '';
 
@@ -1629,7 +1642,6 @@
 
                 const currentDisplayName = getItemName(stock.itemReference);
 
-                // Заголовок больше не является кликабельным (нет onclick, hover-эффектов, иконки редактирования и инпутов ввода)
                 return `
                   <div class="p-3 bg-brand-cream/10 rounded-xl border border-brand-brown/5 flex flex-col gap-2.5">
                     <!-- Заголовок товара (статический текст) -->
@@ -1674,11 +1686,17 @@
                 `;
               }).join('');
 
+              // Замена заголовка категории в складе, если она «Безалкогольные напитки»
+              let displayCatTitle = catTitle;
+              if (displayCatTitle === 'Безалкогольные напитки') {
+                displayCatTitle = 'Напитки';
+              }
+
               return `
                 <div class="bg-white p-4 rounded-2xl border border-brand-brown/10 shadow-sm space-y-3 animate-fade-in">
                   <h3 class="text-xs font-black text-brand-brown uppercase tracking-wider border-b border-brand-cream pb-1.5 flex items-center gap-1.5">
                     <i data-lucide="tag" class="w-3.5 h-3.5 text-brand-peach"></i>
-                    ${catTitle}
+                    ${displayCatTitle}
                   </h3>
                   <div class="space-y-2.5">
                     ${itemsRows}
