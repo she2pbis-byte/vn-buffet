@@ -453,6 +453,19 @@
       return Object.values(state.cart).reduce((a, b) => a + b, 0);
     }
 
+    // Вспомогательная функция для генерации одинаковой верстки списка позиций во всех счетах
+    function generateBillItemsMarkup(items) {
+      return items.map(item => `
+        <div class="flex justify-between items-center text-xs py-2 border-b border-brand-brown/10">
+          <span class="text-brand-dark font-medium">${item.name}</span>
+          <div class="text-right flex items-center gap-4 flex-shrink-0">
+            <span class="text-brand-peach font-bold">x${item.count}</span>
+            <span class="text-brand-brown font-semibold w-16 text-right">${item.price * item.count} ₽</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
     function changeCategory(catId) {
       state.activeCategoryId = catId;
       render();
@@ -1061,7 +1074,7 @@
           `;
         }
 
-        // Всплывающее окно истории заказов и запроса оплаты гостя
+        // Всплывающее окно истории заказов и запроса оплаты гостя (Приведено к Единому Стилю счетов)
         let guestHistoryModalHtml = '';
         if (state.showGuestHistoryModal) {
           const myOrders = state.orders.filter(o => String(o.table) === String(state.tableNumber));
@@ -1099,37 +1112,21 @@
                 isWaitingForPay = true;
               }
 
-              // Отображение позиций в виде классического структурированного чека (название - кол-во - сумма)
-              const itemsTableHtml = order.items.map(i => `
-                <div class="grid grid-cols-12 gap-1 text-[11px] text-brand-dark py-1 border-b border-dashed border-brand-brown/10 align-middle">
-                  <span class="col-span-7 truncate font-medium" title="${i.name}">${i.name}</span>
-                  <span class="col-span-2 text-center font-bold text-brand-peach">x${i.count}</span>
-                  <span class="col-span-3 text-right font-bold text-brand-dark">${i.price * i.count} ₽</span>
-                </div>
-              `).join('');
-
               return `
-                <div class="p-3 bg-white border border-brand-brown/10 rounded-xl space-y-2 text-xs shadow-sm">
-                  <div class="flex justify-between items-center border-b border-brand-brown/10 pb-1.5">
+                <div class="p-4 bg-white border border-brand-brown/10 rounded-2xl space-y-3 text-xs shadow-sm">
+                  <div class="flex justify-between items-center border-b border-brand-brown/10 pb-2">
                     <span class="text-[10px] text-brand-brown font-black">Заказ ${order.id.replace('ord_comb_', '').substring(0, 6)}</span>
                     <span class="text-[10px] text-brand-brown/60">${formattedTime}</span>
                   </div>
                   
-                  <!-- Заголовки колонок чека -->
-                  <div class="grid grid-cols-12 gap-1 text-[9px] text-brand-brown/60 font-black uppercase tracking-wider pb-0.5">
-                    <span class="col-span-7">Название</span>
-                    <span class="col-span-2 text-center">Кол.</span>
-                    <span class="col-span-3 text-right">Сумма</span>
-                  </div>
-
-                  <!-- Позиции -->
-                  <div class="space-y-0.5">
-                    ${itemsTableHtml}
+                  <!-- Унифицированный список позиций -->
+                  <div class="space-y-1">
+                    ${generateBillItemsMarkup(order.items)}
                   </div>
                   
                   <div class="flex justify-between items-center pt-2">
                     <span class="px-2 py-0.5 rounded text-[9px] font-black border ${statusStyle}">${statusText}</span>
-                    <span class="font-extrabold text-sm text-brand-peach">${order.total} ₽</span>
+                    <span class="font-black text-brand-peach text-sm">${order.total} ₽</span>
                   </div>
                 </div>
               `;
@@ -1151,7 +1148,7 @@
                   </div>
 
                   <!-- Прокручиваемый список истории счетов -->
-                  <div class="space-y-2.5 overflow-y-auto flex-1 pr-1 no-scrollbar my-2 min-h-0">
+                  <div class="space-y-3 overflow-y-auto flex-1 pr-1 no-scrollbar my-2 min-h-0">
                     ${myOrdersHtml}
                   </div>
                 </div>
@@ -1478,7 +1475,7 @@
           }
         }
 
-        // Вкладка "Управление остатками" (Кнопки и ввод перенесены под название)
+        // Вкладка "Управление остатками"
         else if (state.adminTab === 'inventory') {
           let inventoryListHtml = '';
 
@@ -1515,6 +1512,12 @@
               const itemsRows = stocks.map(stock => {
                 const currentStockPortions = state.inventory[stock.stockId] !== undefined ? state.inventory[stock.stockId] : DEFAULT_STOCK;
 
+                // Определение цвета кнопки "Стоп-лист" на базе остатка
+                const isOutOfStock = currentStockPortions <= 0;
+                const stopListBtnClass = isOutOfStock
+                  ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100 hover:border-red-300'
+                  : 'bg-white text-brand-dark border-brand-dark/20 hover:bg-brand-cream/20';
+
                 return `
                   <div class="p-3 bg-brand-cream/10 rounded-xl border border-brand-brown/5 flex flex-col gap-2.5">
                     <!-- Название товара на всю доступную ширину строки -->
@@ -1540,9 +1543,10 @@
                         <span class="text-[9px] text-brand-dark font-black">порц.</span>
                       </div>
 
+                      <!-- Кнопка без анимации (убран transition) со сменой стиля (черный / красный) -->
                       <button 
                         onclick="setStockZero('${stock.stockId}')" 
-                        class="bg-red-50 hover:bg-red-600 text-red-600 hover:text-white px-2.5 h-8 rounded-lg text-[10px] font-bold border border-red-100 hover:border-red-600 transition flex items-center justify-center gap-1 flex-1"
+                        class="${stopListBtnClass} px-2.5 h-8 rounded-lg text-[10px] font-bold border flex items-center justify-center gap-1 flex-1"
                         title="Добавить всю позицию в стоп-лист (0 порций)"
                       >
                         <i data-lucide="slash" class="w-3 h-3"></i> Стоп-лист
@@ -1573,7 +1577,7 @@
           `;
         }
 
-        // Вкладка "Архив"
+        // Вкладка "Архив" (Приведен к Единому Стилю счетов на базе детального стола)
         else if (state.adminTab === 'archive') {
           if (paidOrders.length === 0) {
             ordersHtml = `
@@ -1588,31 +1592,30 @@
           } else {
             ordersHtml = paidOrders.map(order => {
               const formattedTime = new Date(order.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-              const itemsListHtml = order.items.map(item => `
-                <div class="flex justify-between items-center text-xs py-0.5">
-                  <span class="text-brand-brown/80">${item.name} x${item.count}</span>
-                  <span class="text-brand-brown">${item.price * item.count} ₽</span>
-                </div>
-              `).join('');
 
               return `
-                <div class="bg-white/80 p-4 rounded-2xl border border-brand-brown/5 shadow-sm space-y-2 opacity-80">
-                  <div class="flex justify-between items-start text-xs">
+                <div class="bg-white p-5 rounded-2xl border border-brand-brown/10 shadow-sm space-y-4">
+                  <div class="flex justify-between items-start border-b border-brand-brown/15 pb-2">
                     <div>
-                      <span class="bg-brand-brown text-brand-cream text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">Стол №${order.table}</span>
+                      <span class="bg-brand-brown text-brand-cream text-[10px] font-bold px-2.5 py-1 rounded-full uppercase">Стол №${order.table}</span>
                       <span class="text-[10px] text-brand-brown/50 ml-2">${formattedTime}</span>
                     </div>
-                    <div class="font-bold text-green-600 flex items-center gap-1"><i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i> Оплачено</div>
-                  </div>
-                  <div class="text-xs border-t border-dashed border-brand-brown/10 pt-2">
-                    ${itemsListHtml}
-                  </div>
-                  <div class="flex justify-between items-center text-xs pt-1 border-t border-brand-brown/5">
-                    <span class="text-[10px] text-brand-brown/60">ID: ${order.id.replace('ord_comb_', '').substring(0, 8)}</span>
-                    <span class="font-bold text-brand-dark">Итого: ${order.total} ₽</span>
+                    <div class="font-bold text-xs text-green-600 flex items-center gap-1 bg-green-50 px-2 py-0.5 rounded border border-green-100">
+                      <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i> Оплачено
+                    </div>
                   </div>
                   
-                  <div class="flex gap-2 pt-1 justify-end">
+                  <!-- Унифицированный список позиций -->
+                  <div class="space-y-1">
+                    ${generateBillItemsMarkup(order.items)}
+                  </div>
+                  
+                  <div class="flex justify-between items-center text-xs pt-3 border-t border-brand-brown/10">
+                    <span class="text-[9px] text-brand-brown/50 font-medium">ID: ${order.id.replace('ord_comb_', '').substring(0, 8)}</span>
+                    <span class="font-black text-brand-dark text-base">Итого: ${order.total} ₽</span>
+                  </div>
+                  
+                  <div class="flex gap-2 pt-1.5 justify-end">
                     <button 
                       onclick="openBill('${order.id}')" 
                       class="text-brand-peach hover:text-brand-brown text-xs flex items-center gap-1 py-1 px-2 hover:bg-brand-cream rounded font-bold"
@@ -1632,43 +1635,41 @@
           }
         }
 
-        // Модальное окно административного чека
+        // Модальное окно административного чека (Приведено к Единому Стилю счетов)
         const billModalHtml = state.selectedBillOrder ? `
           <div class="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-50 flex items-start justify-center p-4 pb-24 overflow-y-auto">
-            <div class="bg-white border-2 border-brand-brown p-5 rounded-2xl w-full max-w-sm shadow-2xl relative max-h-[72vh] flex flex-col justify-between my-4 animate-fade-in">
-              <button onclick="closeBillModal()" class="absolute top-4 right-4 text-brand-brown hover:text-brand-dark z-10">
+            <div class="bg-brand-cream border-2 border-brand-brown p-5 rounded-3xl w-full max-w-sm shadow-2xl relative max-h-[80vh] flex flex-col justify-between my-4 animate-fade-in">
+              <button onclick="closeBillModal()" class="absolute top-4 right-4 text-brand-brown hover:text-brand-dark z-20">
                 <i data-lucide="x" class="w-5 h-5"></i>
               </button>
               
-              <div class="text-center pb-4 border-b border-dashed border-brand-brown/30 flex-shrink-0">
-                <i data-lucide="ruble" class="text-brand-peach mx-auto mb-2 w-8 h-8"></i>
-                <h3 class="text-md font-bold text-brand-dark uppercase">Счет на оплату</h3>
-                <p class="text-xs text-brand-brown font-bold text-sm">Стол №${state.selectedBillOrder.table}</p>
+              <div class="text-center pb-3 border-b border-brand-brown/15 flex-shrink-0">
+                <span class="bg-brand-peach text-white text-xs font-black px-4 py-1 rounded-full uppercase">Счет на оплату</span>
+                <p class="text-xs font-bold text-brand-brown mt-2.5">Стол №${state.selectedBillOrder.table}</p>
               </div>
 
-              <!-- Прокручиваемый список позиций в чеке -->
-              <div class="py-4 space-y-2 border-b border-dashed border-brand-brown/30 overflow-y-auto flex-1 min-h-0 my-2 pr-1">
-                ${state.selectedBillOrder.items.map(item => `
-                  <div class="flex justify-between text-xs">
-                    <span class="text-brand-dark">${item.name} <strong class="text-brand-brown">x${item.count}</strong></span>
-                    <span class="font-semibold text-brand-dark">${item.price * item.count} ₽</span>
-                  </div>
-                `).join('')}
+              <!-- Унифицированный список позиций -->
+              <div class="overflow-y-auto flex-1 my-3 pr-1">
+                <div class="text-[10px] text-brand-brown/60 font-bold uppercase tracking-wider mb-2">Общий заказ стола:</div>
+                <div class="space-y-1">
+                  ${generateBillItemsMarkup(state.selectedBillOrder.items)}
+                </div>
               </div>
 
-              <div class="py-3 flex justify-between items-center flex-shrink-0">
-                <span class="font-bold text-xs text-brand-brown">ИТОГО К ОПЛАТЕ:</span>
-                <span class="text-lg font-black text-brand-peach">${state.selectedBillOrder.total} ₽</span>
-              </div>
+              <div class="pt-3 border-t border-brand-brown/15 flex-shrink-0 space-y-4">
+                <div class="flex justify-between items-center">
+                  <span class="text-xs font-bold text-brand-brown uppercase">Итого к оплате:</span>
+                  <span class="text-lg font-black text-brand-peach">${state.selectedBillOrder.total} ₽</span>
+                </div>
 
-              <!-- Только одна чистая кнопка закрытия во всю ширину -->
-              <div class="flex-shrink-0">
-                <button 
-                  onclick="closeBillModal()" 
-                  class="w-full bg-brand-peach hover:bg-brand-brown text-white font-bold py-3 rounded-xl transition text-xs uppercase tracking-wider"
-                >
-                  Закрыть
-                </button>
+                <div class="flex-shrink-0">
+                  <button 
+                    onclick="closeBillModal()" 
+                    class="w-full bg-brand-peach hover:bg-brand-brown text-white font-bold py-3 rounded-xl transition text-xs uppercase tracking-wider"
+                  >
+                    Закрыть
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1679,16 +1680,6 @@
         if (state.selectedAdminTable && groupedByTable[state.selectedAdminTable]) {
           const group = groupedByTable[state.selectedAdminTable];
           const isWaiting = group.waitingForPay;
-
-          const detailedItemsHtml = Object.values(group.items).map(item => `
-            <div class="flex justify-between items-center text-xs py-2 border-b border-brand-brown/10">
-              <span class="text-brand-dark font-medium">${item.name}</span>
-              <div class="text-right flex items-center gap-4">
-                <span class="text-brand-peach font-bold">x${item.count}</span>
-                <span class="text-brand-brown font-semibold w-16 text-right">${item.price * item.count} ₽</span>
-              </div>
-            </div>
-          `).join('');
 
           const orderTimestampsHtml = group.orders.map(o => {
             const time = new Date(o.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
@@ -1714,7 +1705,7 @@
                   <div class="overflow-y-auto flex-1 my-3 pr-1">
                     <div class="text-[10px] text-brand-brown/60 font-bold uppercase tracking-wider mb-2">Общий заказ стола:</div>
                     <div class="space-y-1">
-                      ${detailedItemsHtml}
+                      ${generateBillItemsMarkup(Object.values(group.items))}
                     </div>
                   </div>
                 </div>
