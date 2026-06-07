@@ -878,61 +878,71 @@
           `;
         }).join('') : '';
 
-        // Список блюд выбранной категории
-        const itemsHtml = currentCategory.items ? currentCategory.items.map(item => {
-          const countInCart = state.cart[item.id] || 0;
-          
-          // Связываем остатки с общим складом по stockLinkId
-          const stockId = item.stockLinkId || item.id;
-          const currentStock = state.inventory[stockId] !== undefined ? state.inventory[stockId] : DEFAULT_STOCK;
-          
-          const portionWeight = item.portionWeight !== undefined ? item.portionWeight : 1;
-          const currentUsageInCart = getStockUsageInCart(stockId);
+        // Список блюд выбранной категории (теперь отфильтрованный: скрываем позиции с нулевым остатком для гостей)
+        let itemsHtml = '';
+        if (currentCategory.items) {
+          const availableItems = currentCategory.items.filter(item => {
+            const stockId = item.stockLinkId || item.id;
+            const currentStock = state.inventory[stockId] !== undefined ? state.inventory[stockId] : DEFAULT_STOCK;
+            const portionWeight = item.portionWeight !== undefined ? item.portionWeight : 1;
+            // Позиция отображается только если остатка хватает хотя бы на одну минимальную порцию
+            return currentStock >= portionWeight && currentStock > 0;
+          });
 
-          // Проверка: достаточно ли порций осталось для заказа хотя бы одной единицы этого товара
-          const isOutOfStock = currentStock < portionWeight;
-
-          return `
-            <div class="bg-white p-4 rounded-2xl shadow-sm border border-brand-brown/5 flex gap-4 items-center justify-between transition hover:shadow ${isOutOfStock ? 'opacity-60' : ''}">
-              <div class="flex-1 pr-2">
-                <h3 class="font-bold text-brand-dark text-sm leading-snug flex items-center gap-1.5 flex-wrap">
-                  <span>${item.name}</span>
-                  ${isOutOfStock ? '<span class="text-[9px] bg-red-100 text-red-700 font-bold px-1.5 py-0.5 rounded">Закончилось</span>' : ''}
-                </h3>
-                <p class="text-xs text-brand-brown/80 mt-1 line-clamp-2">${item.description || ''}</p>
-                <div class="text-sm font-extrabold text-brand-peach mt-2">${item.price} ₽</div>
+          if (availableItems.length === 0) {
+            itemsHtml = `
+              <div class="text-center py-12 px-4 bg-white rounded-2xl border border-brand-brown/5 shadow-sm">
+                <i data-lucide="sparkles" class="w-8 h-8 text-brand-peach/45 mx-auto mb-2"></i>
+                <p class="text-xs text-brand-brown font-semibold">Все позиции временно распроданы</p>
+                <p class="text-[10px] text-brand-brown/60 mt-0.5">Пожалуйста, загляните позже или выберите другую категорию.</p>
               </div>
+            `;
+          } else {
+            itemsHtml = availableItems.map(item => {
+              const countInCart = state.cart[item.id] || 0;
               
-              <div class="flex items-center">
-                ${isOutOfStock ? `
-                  <button 
-                    disabled 
-                    class="bg-gray-200 text-gray-400 text-xs font-bold px-3 py-2 rounded-full cursor-not-allowed"
-                  >
-                    Закончился
-                  </button>
-                ` : countInCart > 0 ? `
-                  <div class="flex items-center bg-brand-cream/60 border border-brand-peach/30 rounded-full px-2 py-1 gap-3">
-                    <button onclick="removeFromCart('${item.id}')" class="w-6 h-6 rounded-full bg-white flex items-center justify-center text-brand-peach font-bold hover:bg-brand-peach/10 active:scale-95 transition">-</button>
-                    <span class="font-bold text-sm w-4 text-center text-brand-dark">${countInCart}</span>
-                    <button 
-                      onclick="addToCart('${item.id}')" 
-                      class="w-6 h-6 rounded-full bg-white flex items-center justify-center text-brand-peach font-bold hover:bg-brand-peach/10 active:scale-95 transition ${currentUsageInCart + portionWeight > currentStock ? 'opacity-40 cursor-not-allowed' : ''}"
-                      ${currentUsageInCart + portionWeight > currentStock ? 'disabled title="Предел наличия порций"' : ''}
-                    >+</button>
+              // Связываем остатки с общим складом по stockLinkId
+              const stockId = item.stockLinkId || item.id;
+              const currentStock = state.inventory[stockId] !== undefined ? state.inventory[stockId] : DEFAULT_STOCK;
+              
+              const portionWeight = item.portionWeight !== undefined ? item.portionWeight : 1;
+              const currentUsageInCart = getStockUsageInCart(stockId);
+
+              return `
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-brand-brown/5 flex gap-4 items-center justify-between transition hover:shadow">
+                  <div class="flex-1 pr-2">
+                    <h3 class="font-bold text-brand-dark text-sm leading-snug flex items-center gap-1.5 flex-wrap">
+                      <span>${item.name}</span>
+                    </h3>
+                    <p class="text-xs text-brand-brown/80 mt-1 line-clamp-2">${item.description || ''}</p>
+                    <div class="text-sm font-extrabold text-brand-peach mt-2">${item.price} ₽</div>
                   </div>
-                ` : `
-                  <button 
-                    onclick="addToCart('${item.id}')" 
-                    class="bg-brand-peach hover:bg-brand-brown text-white text-xs font-extrabold px-4 py-2 rounded-full transition active:scale-95 shadow-sm"
-                  >
-                    Заказать
-                  </button>
-                `}
-              </div>
-            </div>
-          `;
-        }).join('') : '';
+                  
+                  <div class="flex items-center">
+                    ${countInCart > 0 ? `
+                      <div class="flex items-center bg-brand-cream/60 border border-brand-peach/30 rounded-full px-2 py-1 gap-3">
+                        <button onclick="removeFromCart('${item.id}')" class="w-6 h-6 rounded-full bg-white flex items-center justify-center text-brand-peach font-bold hover:bg-brand-peach/10 active:scale-95 transition">-</button>
+                        <span class="font-bold text-sm w-4 text-center text-brand-dark">${countInCart}</span>
+                        <button 
+                          onclick="addToCart('${item.id}')" 
+                          class="w-6 h-6 rounded-full bg-white flex items-center justify-center text-brand-peach font-bold hover:bg-brand-peach/10 active:scale-95 transition ${currentUsageInCart + portionWeight > currentStock ? 'opacity-40 cursor-not-allowed' : ''}"
+                          ${currentUsageInCart + portionWeight > currentStock ? 'disabled title="Предел наличия порций"' : ''}
+                        >+</button>
+                      </div>
+                    ` : `
+                      <button 
+                        onclick="addToCart('${item.id}')" 
+                        class="bg-brand-peach hover:bg-brand-brown text-white text-xs font-extrabold px-4 py-2 rounded-full transition active:scale-95 shadow-sm"
+                      >
+                        Заказать
+                      </button>
+                    `}
+                  </div>
+                </div>
+              `;
+            }).join('');
+          }
+        }
 
         // Нижняя панель корзины (всплывает, если корзина не пуста)
         const cartCount = getCartCount();
