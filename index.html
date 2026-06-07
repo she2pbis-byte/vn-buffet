@@ -448,14 +448,19 @@
       }, 0);
     }
 
-    // Вспомогательная функция для генерации одинаковой верстки списка позиций во всех счетах с уменьшенным в два раза расстоянием между количеством и суммой (используется w-10 вместо w-16)
+    // Число позиций в корзине
+    function getCartCount() {
+      return Object.values(state.cart).reduce((a, b) => a + b, 0);
+    }
+
+    // Вспомогательная функция для генерации одинаковой верстки списка позиций во всех счетах
     function generateBillItemsMarkup(items) {
       return items.map(item => `
         <div class="flex justify-between items-center text-xs py-2 border-b border-brand-brown/10">
           <span class="text-brand-dark font-medium">${item.name}</span>
-          <div class="text-right flex items-center gap-2 flex-shrink-0">
+          <div class="text-right flex items-center gap-4 flex-shrink-0">
             <span class="text-brand-peach font-bold">x${item.count}</span>
-            <span class="text-brand-brown font-semibold w-10 text-right">${item.price * item.count} ₽</span>
+            <span class="text-brand-brown font-semibold w-16 text-right">${item.price * item.count} ₽</span>
           </div>
         </div>
       `).join('');
@@ -1055,7 +1060,7 @@
                       id="confirmOrderSubmitBtn"
                       onclick="submitOrder()" 
                       ${isSubmitting ? 'disabled' : ''}
-                      class="col-span-2 bg-green-600 hover:bg-green-700 text-white text-gray-200 font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-1.5 shadow-md disabled:cursor-not-allowed"
+                      class="col-span-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white disabled:text-gray-200 font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-1.5 shadow-md disabled:cursor-not-allowed"
                     >
                       ${isSubmitting 
                         ? '<i data-lucide="loader" class="w-4 h-4 animate-spin text-white"></i> Отправка...' 
@@ -1373,7 +1378,7 @@
 
                   <!-- Статус "просит счет" -->
                   ${isWaiting ? `
-                    <div class="text-center bg-red-50 text-red-600 text-xs font-extrabold py-2.5 px-3 rounded-xl border border-red-200 animate-pulse flex items-center justify-center gap-1.5">
+                    <div class="text-center bg-red-50 text-red-600 text-xs font-extrabold py-2 px-3 rounded-xl border border-red-200 animate-pulse flex items-center justify-center gap-1.5">
                       <i data-lucide="credit-card" class="w-4 h-4"></i> ГОСТЬ ПРОСИТ СЧЕТ!
                     </div>
                   ` : ''}
