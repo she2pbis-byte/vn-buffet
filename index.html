@@ -378,12 +378,13 @@
       }
     }
 
+    // Отмена изменения названия
     function cancelEditingName() {
       state.editingItemId = null;
       render();
     }
 
-    // Обработка ручного ввода числа в инпут
+    // Обработка ручного ввода числа в остаток
     async function handleManualStockInput(stockId, value) {
       if (!state.user) return;
       
@@ -544,9 +545,12 @@
       }).join('');
     }
 
+    // Переключение категории с фокусом на начало списка
     function changeCategory(catId) {
       state.activeCategoryId = catId;
       render();
+      // Фокусировка на начало списка при переходе по разделам
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     // Запрос на оплату гостем
@@ -1001,17 +1005,18 @@
               // Получение динамически измененного названия
               const displayName = getItemName(item);
 
+              // Снижение высоты плашки за счет регулировки внутренних полей и отступов: py-3 вместо py-4, уменьшены mt
               return `
-                <div class="bg-white p-4 rounded-2xl shadow-sm border border-brand-brown/5 flex gap-4 items-center justify-between transition hover:shadow">
+                <div class="bg-white py-3 px-4 rounded-2xl shadow-sm border border-brand-brown/5 flex gap-3 items-center justify-between transition hover:shadow">
                   <div class="flex-1 pr-2">
                     <h3 class="font-bold text-brand-dark text-sm leading-snug flex items-center gap-1.5 flex-wrap">
                       <span>${displayName}</span>
                     </h3>
-                    <p class="text-xs text-brand-brown/80 mt-1 line-clamp-2">${item.description || ''}</p>
-                    <div class="text-sm font-extrabold text-brand-peach mt-2">${item.price} ₽</div>
+                    <p class="text-xs text-brand-brown/80 mt-0.5 line-clamp-2">${item.description || ''}</p>
+                    <div class="text-sm font-extrabold text-brand-peach mt-1">${item.price} ₽</div>
                   </div>
                   
-                  <div class="flex items-center">
+                  <div class="flex items-center flex-shrink-0">
                     ${countInCart > 0 ? `
                       <div class="flex items-center bg-brand-cream/60 border border-brand-peach/30 rounded-full px-2 py-1 gap-3">
                         <button onclick="removeFromCart('${item.id}')" class="w-6 h-6 rounded-full bg-white flex items-center justify-center text-brand-peach font-bold hover:bg-brand-peach/10 active:scale-95 transition">-</button>
@@ -1282,7 +1287,7 @@
             </div>
             
             <div class="flex items-center gap-2">
-              <!-- Иконка чека (счета) гостя (с замененным символом $ на receipt) -->
+              <!-- Иконка чека (счета) гостя -->
               <button 
                 onclick="toggleGuestHistoryModal(true)" 
                 class="w-10 h-10 rounded-full bg-brand-brown flex items-center justify-center border border-brand-peach/30 text-brand-cream hover:bg-brand-peach transition relative"
@@ -1561,7 +1566,7 @@
           }
         }
 
-        // Вкладка "Управление остатками" (Добавлена возможность редактирования названий по тапу на заголовке)
+        // Вкладка "Управление остатками" (Редактирование названий прямо по тапу на заголовок)
         else if (state.adminTab === 'inventory') {
           let inventoryListHtml = '';
 
@@ -1587,7 +1592,7 @@
               });
             });
 
-            // Рендерим склады, группируя их по категориям
+            // Группировка
             const categoriesWithStocks = {};
             stockItemsList.forEach(stock => {
               if (!categoriesWithStocks[stock.categoryTitle]) {
@@ -1600,7 +1605,6 @@
               const itemsRows = stocks.map(stock => {
                 const currentStockPortions = state.inventory[stock.stockId] !== undefined ? state.inventory[stock.stockId] : DEFAULT_STOCK;
 
-                // Определение цвета кнопки "Стоп-лист" на базе остатка
                 const isOutOfStock = currentStockPortions <= 0;
                 const stopListBtnClass = isOutOfStock
                   ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100 hover:border-red-300'
@@ -1611,7 +1615,7 @@
 
                 return `
                   <div class="p-3 bg-brand-cream/10 rounded-xl border border-brand-brown/5 flex flex-col gap-2.5">
-                    <!-- Заголовок товара на всю доступную ширину строки. Добавлен кликабельный функционал для изменения -->
+                    <!-- Заголовок товара -->
                     <div class="w-full">
                       ${isEditing ? `
                         <div class="flex items-center gap-1">
@@ -1646,7 +1650,7 @@
                       `}
                     </div>
                     
-                    <!-- Управление остатками порций (Остаток + Поле + Стоп) -->
+                    <!-- Управление остатками -->
                     <div class="flex items-center gap-1.5 w-full pt-1 border-t border-brand-brown/5">
                       <div class="flex items-center bg-white border border-brand-brown/20 rounded-lg px-2 py-1 gap-1 shadow-sm flex-1 justify-center">
                         <span class="text-[10px] text-brand-brown/60 font-semibold">Остаток:</span>
