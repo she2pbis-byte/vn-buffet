@@ -1243,9 +1243,9 @@
                 
                 <div class="flex-1 flex flex-col min-h-0">
                   <div class="text-center pb-3 border-b border-brand-brown/10 mb-2 flex-shrink-0 flex flex-col items-center">
-                    <!-- Заменена иконка на стилизованный символ "₽" -->
+                    <!-- Заменена иконка "₽" на значок кредитной карты -->
                     <div class="w-12 h-12 rounded-full bg-brand-peach/15 flex items-center justify-center mb-1 shadow-inner">
-                      <span class="text-2xl font-black text-brand-peach leading-none">₽</span>
+                      <i data-lucide="credit-card" class="w-6 h-6 text-brand-peach"></i>
                     </div>
                     <h3 class="text-md font-bold text-brand-dark uppercase">Счет стола</h3>
                     <p class="text-xs text-brand-brown">Стол №${state.tableNumber}</p>
@@ -1311,13 +1311,13 @@
             
             <!-- Расстояние между кнопками увеличено в три раза с gap-2 до gap-6 -->
             <div class="flex items-center gap-6">
-              <!-- Кнопка вызова счета стола гостя с красивым текстовым символом "₽" -->
+              <!-- Кнопка вызова счета стола гостя со значком кредитной карты "credit-card" -->
               <button 
                 onclick="toggleGuestHistoryModal(true)" 
-                class="w-10 h-10 rounded-full bg-brand-brown flex items-center justify-center border border-brand-peach/30 text-brand-cream hover:bg-brand-peach transition relative font-extrabold text-base select-none"
+                class="w-10 h-10 rounded-full bg-brand-brown flex items-center justify-center border border-brand-peach/30 text-brand-cream hover:bg-brand-peach transition relative"
                 title="Счет и история стола"
               >
-                <span class="leading-none select-none">₽</span>
+                <i data-lucide="credit-card" class="w-4.5 h-4.5"></i>
                 ${state.orders.filter(o => String(o.table) === String(state.tableNumber) && o.status !== 'paid').length > 0 ? `
                   <span class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-brand-peach rounded-full border border-dark animate-pulse"></span>
                 ` : ''}
