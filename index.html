@@ -256,7 +256,7 @@
           <div class="p-8 text-center flex flex-col justify-center items-center min-h-screen animate-fade-in">
             <i data-lucide="alert-triangle" class="w-16 h-16 text-red-500 mb-4"></i>
             <h2 class="text-xl font-bold text-brand-dark mb-2">Ошибка подключения</h2>
-            <p class="text-brand-brown text-sm mb-6">Меню ещё не готово</p>
+            <p class="text-brand-brown text-sm mb-6">Убедитесь, что файл <strong>menu.json</strong> лежит в той же папке, что и index.html.</p>
             <button onclick="location.reload()" class="bg-brand-peach text-white font-bold py-2 px-6 rounded-xl hover:bg-brand-brown transition">Повторить попытку</button>
           </div>
         `;
@@ -876,7 +876,7 @@
             <!-- Блок Гостя -->
             <div class="bg-white border border-brand-brown/10 p-6 rounded-2xl shadow-sm mb-6">
               <h2 class="text-md font-bold text-brand-dark mb-4 flex items-center gap-2 border-b border-brand-cream pb-2">
-                <i data-lucide="user" class="w-4 h-4 text-brand-peach"></i> Выберите стол
+                <i data-lucide="user" class="w-4 h-4 text-brand-peach"></i> Я — Гость
               </h2>
               <form onsubmit="handleGuestLogin(event)">
                 <div class="grid grid-cols-3 gap-2">
@@ -895,10 +895,31 @@
                 </div>
               </form>
             </div>
+
+            <!-- Блок Admin -->
+            <div class="bg-white border border-brand-brown/10 p-6 rounded-2xl shadow-sm">
+              <h2 class="text-md font-bold text-brand-dark mb-4 flex items-center gap-2 border-b border-brand-cream pb-2">
+                <i data-lucide="shield-check" class="w-4 h-4 text-brand-brown"></i> Панель сотрудника
+              </h2>
+              <form onsubmit="handleAdminLogin(event)">
+                <div class="grid grid-cols-3 gap-2">
+                  <input 
+                    type="password" 
+                    id="passwordInput" 
+                    placeholder="Введите пароль" 
+                    required
+                    class="col-span-2 px-4 py-3 rounded-xl border border-brand-brown/20 bg-brand-cream/30 focus:outline-none focus:ring-2 focus:ring-brand-peach text-brand-dark font-medium text-sm"
+                  >
+                  <button type="submit" class="col-span-1 bg-brand-brown hover:bg-brand-dark text-white font-bold text-sm rounded-xl transition duration-200">
+                    Войти
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
 
           <div class="text-center text-xs text-brand-brown/60 pt-4 border-t border-brand-brown/10 mt-4">
-            &copy; 2026-2027 Онлайн-заказ по QR
+            &copy; 2026 БУФЕТ В КЗЦ. Онлайн-заказ по QR-коду со стола.
           </div>
         `;
       }
