@@ -959,7 +959,6 @@
         }).join('') : '';
 
         // Вывод виртуальных подразделов, если они есть у текущей категории.
-        // Шрифт увеличен на 30% (изменен класс text-[10px] -> text-[13px])
         let subcategoriesHtml = '';
         if (currentCategory.subcategories && currentCategory.subcategories.length > 0) {
           const subTabs = currentCategory.subcategories.map(sub => {
@@ -967,7 +966,7 @@
             return `
               <button 
                 onclick="changeSubcategory('${sub.id}')" 
-                class="px-3 py-1.5 rounded-full text-[13px] font-bold border transition ${
+                class="px-3 py-1.5 rounded-full text-[11px] font-bold border transition ${
                   isSubActive 
                     ? 'bg-brand-brown text-white border-brand-brown shadow-sm' 
                     : 'bg-white/60 text-brand-brown/80 border-brand-brown/10 hover:bg-white'
@@ -1317,7 +1316,7 @@
                 ` : ''}
               </button>
 
-              <!-- Индикатор стола (шрифт увеличен на 30% с text-[13px] до text-[17px]) -->
+              <!-- Индикатор стола -->
               <div 
                 class="w-10 h-10 rounded-full bg-brand-brown flex flex-col items-center justify-center border border-brand-peach text-[17px] font-black shadow-inner"
                 title="Ваш стол"
