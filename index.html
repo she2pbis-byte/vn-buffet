@@ -1243,7 +1243,6 @@
                 
                 <div class="flex-1 flex flex-col min-h-0">
                   <div class="text-center pb-3 border-b border-brand-brown/10 mb-2 flex-shrink-0 flex flex-col items-center">
-                    <!-- Заменена иконка "₽" на значок кредитной карты -->
                     <div class="w-12 h-12 rounded-full bg-brand-peach/15 flex items-center justify-center mb-1 shadow-inner">
                       <i data-lucide="credit-card" class="w-6 h-6 text-brand-peach"></i>
                     </div>
@@ -1309,29 +1308,34 @@
               </div>
             </div>
             
-            <!-- Расстояние между кнопками увеличено в три раза с gap-2 до gap-6 -->
-            <div class="flex items-center gap-6">
-              <!-- Кнопка вызова счета стола гостя со значком кредитной карты "credit-card" -->
+            <!-- Расстояние между кнопками уменьшено в два раза до gap-3 -->
+            <div class="flex items-center gap-3">
+              <!-- Кнопка вызова счета стола гостя: оформлена в персиковом цвете с персиковой обводкой -->
               <button 
                 onclick="toggleGuestHistoryModal(true)" 
-                class="w-10 h-10 rounded-full bg-brand-brown flex items-center justify-center border border-brand-peach/30 text-brand-cream hover:bg-brand-peach transition relative"
+                class="w-10 h-10 rounded-full bg-brand-peach border border-brand-peach flex items-center justify-center text-white hover:bg-brand-brown hover:border-brand-peach/85 transition relative"
                 title="Счет и история стола"
               >
-                <i data-lucide="credit-card" class="w-4.5 h-4.5"></i>
+                <i data-lucide="credit-card" class="w-4 h-4"></i>
                 ${state.orders.filter(o => String(o.table) === String(state.tableNumber) && o.status !== 'paid').length > 0 ? `
                   <span class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-brand-peach rounded-full border border-dark animate-pulse"></span>
                 ` : ''}
               </button>
 
-              <!-- Индикатор стола -->
+              <!-- Индикатор стола с прозрачным фоном bg-transparent -->
               <div 
-                class="w-10 h-10 rounded-full bg-brand-brown flex flex-col items-center justify-center border border-brand-peach text-[17px] font-black shadow-inner"
+                class="w-10 h-10 rounded-full bg-transparent flex flex-col items-center justify-center border border-brand-peach text-[17px] font-black text-brand-peach"
                 title="Ваш стол"
               >
                 ${state.tableNumber}
               </div>
               
-              <button onclick="logout()" class="text-brand-cream/80 hover:text-white p-1" title="Выйти">
+              <!-- Кнопка выхода оформлена в точно таком же стиле, как и кнопка счета -->
+              <button 
+                onclick="logout()" 
+                class="w-10 h-10 rounded-full bg-brand-peach border border-brand-peach flex items-center justify-center text-white hover:bg-brand-brown hover:border-brand-peach/85 transition" 
+                title="Выйти"
+              >
                 <i data-lucide="log-out" class="w-4 h-4"></i>
               </button>
             </div>
