@@ -936,7 +936,6 @@
           : { title: '', items: [] };
 
         // Сетка категорий (3 колонки для оптимизации высоты). 
-        // Названия увеличены на 30% (изменен класс text-[10px] -> text-[13px]).
         // Реализована замена «Безалкогольные напитки» на «Напитки»
         const categoryTabsHtml = state.menuData && state.menuData.categories ? state.menuData.categories.map(cat => {
           const isActive = cat.id === state.activeCategoryId;
@@ -1019,34 +1018,37 @@
               const displayName = getItemName(item);
 
               return `
-                <div class="bg-white py-3 px-4 rounded-2xl shadow-sm border border-brand-brown/5 flex gap-3 items-center justify-between transition hover:shadow">
-                  <div class="flex-1 pr-2">
-                    <h3 class="font-bold text-brand-dark text-sm leading-snug flex items-center gap-1.5 flex-wrap">
-                      <span>${displayName}</span>
+                <div class="bg-white py-3 px-4 rounded-2xl shadow-sm border border-brand-brown/5 flex flex-col justify-between transition hover:shadow relative min-h-[105px]">
+                  <div class="w-full">
+                    <h3 class="font-bold text-brand-dark text-sm leading-snug truncate" title="${displayName}">
+                      ${displayName}
                     </h3>
-                    <p class="text-xs text-brand-brown/80 mt-0.5 line-clamp-2">${item.description || ''}</p>
-                    <div class="text-sm font-extrabold text-brand-peach mt-1">${item.price} ₽</div>
+                    <p class="text-[11px] text-brand-brown/70 mt-1 line-clamp-2 leading-relaxed">${item.description || ''}</p>
                   </div>
                   
-                  <div class="flex items-center flex-shrink-0">
-                    ${countInCart > 0 ? `
-                      <div class="flex items-center bg-brand-cream/60 border border-brand-peach/30 rounded-full px-2 py-1 gap-3">
-                        <button onclick="removeFromCart('${item.id}')" class="w-6 h-6 rounded-full bg-white flex items-center justify-center text-brand-peach font-bold hover:bg-brand-peach/10 active:scale-95 transition">-</button>
-                        <span class="font-bold text-sm w-4 text-center text-brand-dark">${countInCart}</span>
+                  <div class="flex items-center justify-between mt-2.5 pt-2 border-t border-brand-brown/5">
+                    <div class="text-sm font-extrabold text-brand-peach">${item.price} ₽</div>
+                    
+                    <div class="flex-shrink-0">
+                      ${countInCart > 0 ? `
+                        <div class="flex items-center bg-brand-cream/60 border border-brand-peach/30 rounded-full px-2 py-0.5 gap-2.5">
+                          <button onclick="removeFromCart('${item.id}')" class="w-5.5 h-5.5 rounded-full bg-white flex items-center justify-center text-brand-peach font-bold hover:bg-brand-peach/10 active:scale-95 transition">-</button>
+                          <span class="font-bold text-xs w-4 text-center text-brand-dark">${countInCart}</span>
+                          <button 
+                            onclick="addToCart('${item.id}')" 
+                            class="w-5.5 h-5.5 rounded-full bg-white flex items-center justify-center text-brand-peach font-bold hover:bg-brand-peach/10 active:scale-95 transition ${currentUsageInCart + portionWeight > currentStock ? 'opacity-40 cursor-not-allowed' : ''}"
+                            ${currentUsageInCart + portionWeight > currentStock ? 'disabled title="Предел наличия порций"' : ''}
+                          >+</button>
+                        </div>
+                      ` : `
                         <button 
                           onclick="addToCart('${item.id}')" 
-                          class="w-6 h-6 rounded-full bg-white flex items-center justify-center text-brand-peach font-bold hover:bg-brand-peach/10 active:scale-95 transition ${currentUsageInCart + portionWeight > currentStock ? 'opacity-40 cursor-not-allowed' : ''}"
-                          ${currentUsageInCart + portionWeight > currentStock ? 'disabled title="Предел наличия порций"' : ''}
-                        >+</button>
-                      </div>
-                    ` : `
-                      <button 
-                        onclick="addToCart('${item.id}')" 
-                        class="bg-brand-peach hover:bg-brand-brown text-white text-xs font-extrabold px-4 py-2 rounded-full transition active:scale-95 shadow-sm"
-                      >
-                        Заказать
-                      </button>
-                    `}
+                          class="bg-brand-peach hover:bg-brand-brown text-white text-[11px] font-black px-4 py-1.5 rounded-full transition active:scale-95 shadow-sm"
+                        >
+                          Заказать
+                        </button>
+                      `}
+                    </div>
                   </div>
                 </div>
               `;
@@ -1159,7 +1161,7 @@
                       id="confirmOrderSubmitBtn"
                       onclick="submitOrder()" 
                       ${isSubmitting ? 'disabled' : ''}
-                      class="col-span-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white disabled:text-gray-200 font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-1.5 shadow-md disabled:cursor-not-allowed"
+                      class="col-span-2 bg-green-600 hover:bg-green-700 text-white disabled:text-gray-200 font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-1.5 shadow-md disabled:cursor-not-allowed"
                     >
                       ${isSubmitting 
                         ? '<i data-lucide="loader" class="w-4 h-4 animate-spin text-white"></i> Отправка...' 
@@ -1240,7 +1242,7 @@
                 
                 <div class="flex-1 flex flex-col min-h-0">
                   <div class="text-center pb-3 border-b border-brand-brown/10 mb-2 flex-shrink-0">
-                    <i data-lucide="receipt" class="w-8 h-8 text-brand-peach mx-auto mb-1"></i>
+                    <i data-lucide="ruble" class="w-8 h-8 text-brand-peach mx-auto mb-1"></i>
                     <h3 class="text-md font-bold text-brand-dark uppercase">Счет стола</h3>
                     <p class="text-xs text-brand-brown">Стол №${state.tableNumber}</p>
                   </div>
@@ -1303,14 +1305,15 @@
               </div>
             </div>
             
-            <div class="flex items-center gap-2">
-              <!-- Иконка чека (счета) гостя -->
+            <!-- Расстояние между кнопками увеличено в три раза с gap-2 до gap-6 -->
+            <div class="flex items-center gap-6">
+              <!-- Иконка чека (счета) гостя (заменен receipt на значок ruble) -->
               <button 
                 onclick="toggleGuestHistoryModal(true)" 
                 class="w-10 h-10 rounded-full bg-brand-brown flex items-center justify-center border border-brand-peach/30 text-brand-cream hover:bg-brand-peach transition relative"
                 title="Счет и история стола"
               >
-                <i data-lucide="receipt" class="w-4 h-4"></i>
+                <i data-lucide="ruble" class="w-4 h-4"></i>
                 ${state.orders.filter(o => String(o.table) === String(state.tableNumber) && o.status !== 'paid').length > 0 ? `
                   <span class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-brand-peach rounded-full border border-dark animate-pulse"></span>
                 ` : ''}
@@ -1366,7 +1369,7 @@
         const servedOrders = state.orders.filter(o => o.status === 'served');
         const paidOrders = state.orders.filter(o => o.status === 'paid');
 
-        // Группировка активных заказов по столам для вкладки "Столы"
+        // Группировка active заказов по столам для вкладки "Столы"
         const groupedByTable = {};
         servedOrders.forEach(order => {
           if (!groupedByTable[order.table]) {
@@ -1754,7 +1757,7 @@
                       onclick="openBill('${order.id}')" 
                       class="text-brand-peach hover:text-brand-brown text-xs flex items-center gap-1 py-1 px-2 hover:bg-brand-cream rounded font-bold"
                     >
-                      <i data-lucide="receipt" class="w-3.5 h-3.5"></i> Посмотреть чек
+                      <i data-lucide="ruble" class="w-3.5 h-3.5"></i> Посмотреть чек
                     </button>
                     <button 
                       onclick="deleteOrder('${order.id}')" 
