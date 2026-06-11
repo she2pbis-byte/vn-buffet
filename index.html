@@ -488,6 +488,7 @@
     }
 
     // Вспомогательная функция для генерации одинаковой верстки списка позиций во всех счетах
+    // Расстояние (gap) между количеством (хКол-во) и ценой уменьшено вдвое (с gap-4 на gap-2, а фиксированная ширина уменьшена с w-16 на w-12)
     function generateBillItemsMarkup(items) {
       return items.map(item => {
         const originalItem = findMenuItem(item.id);
@@ -496,9 +497,9 @@
         return `
           <div class="flex justify-between items-center text-xs py-2 border-b border-brand-brown/10">
             <span class="text-brand-dark font-medium">${displayName}</span>
-            <div class="text-right flex items-center gap-4 flex-shrink-0">
+            <div class="text-right flex items-center gap-2 flex-shrink-0">
               <span class="text-brand-peach font-bold">x${item.count}</span>
-              <span class="text-brand-brown font-semibold w-16 text-right">${item.price * item.count} ₽</span>
+              <span class="text-brand-brown font-semibold w-12 text-right">${item.price * item.count} ₽</span>
             </div>
           </div>
         `;
@@ -1903,7 +1904,7 @@
           <!-- Табы Новые / Столы / Остатки / Архив -->
           ${tabsHtml}
 
-          <!-- Основной контент (Список заказов или панель складов) -->
+          <!-- Основной контент (Список заказов или... -->
           <main class="flex-1 p-4 space-y-4 overflow-y-auto">
             ${ordersHtml}
           </main>
