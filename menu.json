@@ -1,25 +1,17 @@
+```json
 {
   "categories": [
     {
       "id": "alcohol",
       "title": "Алкоголь",
       "subcategories": [
-        {
-          "id": "sparkling",
-          "title": "Игристые вина"
-        },
-        {
-          "id": "still",
-          "title": "Тихие вина"
-        },
-        {
-          "id": "strong",
-          "title": "Крепкие напитки"
-        }
+        { "id": "sparkling", "title": "Игристые вина" },
+        { "id": "still", "title": "Тихие вина" },
+        { "id": "strong", "title": "Крепкие напитки" }
       ],
       "items": [
         {
-          "id": "alc_1",
+          "id": "alc_100",
           "name": "Балаклава Брют, БОКАЛ",
           "price": 450,
           "description": "Крым, белое брют, 125 мл",
@@ -29,7 +21,7 @@
           "subcategory": "sparkling"
         },
         {
-          "id": "alc_2",
+          "id": "alc_101",
           "name": "Балаклава Мускат, БОКАЛ",
           "price": 450,
           "description": "Крым, белое полусладкое, 125 мл",
@@ -39,7 +31,7 @@
           "subcategory": "sparkling"
         },
         {
-          "id": "alc_10",
+          "id": "alc_102",
           "name": "ЗБ Спуманте, БОКАЛ",
           "price": 350,
           "description": "Крым, белое брют, 125 мл",
@@ -49,7 +41,7 @@
           "subcategory": "sparkling"
         },
         {
-          "id": "alc_11",
+          "id": "alc_103",
           "name": "ЗБ Москато, БОКАЛ",
           "price": 350,
           "description": "Крым, белое полусладкое, 125 мл",
@@ -59,7 +51,7 @@
           "subcategory": "sparkling"
         },
         {
-          "id": "alc_21",
+          "id": "alc_300",
           "name": "Балаклава Брют, БУТЫЛКА",
           "price": 2700,
           "description": "Крым, белое брют, 750 мл",
@@ -69,7 +61,7 @@
           "subcategory": "sparkling"
         },
         {
-          "id": "alc_22",
+          "id": "alc_301",
           "name": "Балаклава Мускат, БУТЫЛКА",
           "price": 2700,
           "description": "Крым, белое полусладкое, 750 мл",
@@ -79,7 +71,7 @@
           "subcategory": "sparkling"
         },
         {
-          "id": "alc_30",
+          "id": "alc_302",
           "name": "ЗБ Спуманте, БУТЫЛКА",
           "price": 2100,
           "description": "Крым, белое брют, 750 мл",
@@ -89,7 +81,7 @@
           "subcategory": "sparkling"
         },
         {
-          "id": "alc_31",
+          "id": "alc_303",
           "name": "ЗБ Москато, БУТЫЛКА",
           "price": 2100,
           "description": "Крым, белое полусладкое, 750 мл",
@@ -99,7 +91,7 @@
           "subcategory": "sparkling"
         },
         {
-          "id": "alc_3",
+          "id": "alc_200",
           "name": "ЗБ Рислинг, БОКАЛ",
           "price": 350,
           "description": "Крым, белое полусухое, 150 мл",
@@ -109,7 +101,7 @@
           "subcategory": "still"
         },
         {
-          "id": "alc_4",
+          "id": "alc_201",
           "name": "Кьянти Серистори, БОКАЛ",
           "price": 500,
           "description": "Италия, красное сухое, 150 мл",
@@ -119,7 +111,7 @@
           "subcategory": "still"
         },
         {
-          "id": "alc_5",
+          "id": "alc_202",
           "name": "Ле Гран Нуар Совиньон Блан, БОКАЛ",
           "price": 500,
           "description": "Франция, белое сухое, 150 мл",
@@ -129,7 +121,7 @@
           "subcategory": "still"
         },
         {
-          "id": "alc_6",
+          "id": "alc_203",
           "name": "Ле Гран Нуар Пино Нуар, БОКАЛ",
           "price": 500,
           "description": "Франция, красное сухое, 150 мл",
@@ -139,7 +131,7 @@
           "subcategory": "still"
         },
         {
-          "id": "alc_12",
+          "id": "alc_204",
           "name": "Пино Гриджио, БОКАЛ",
           "price": 500,
           "description": "Италия, белое сухое, 150 мл",
@@ -149,7 +141,7 @@
           "subcategory": "still"
         },
         {
-          "id": "alc_23",
+          "id": "alc_400",
           "name": "ЗБ Рислинг, БУТЫЛКА",
           "price": 1750,
           "description": "Крым, белое полусухое, 750 мл",
@@ -159,7 +151,7 @@
           "subcategory": "still"
         },
         {
-          "id": "alc_24",
+          "id": "alc_401",
           "name": "Кьянти Серистори, БУТЫЛКА",
           "price": 2500,
           "description": "Италия, красное сухое, 750 мл",
@@ -169,7 +161,7 @@
           "subcategory": "still"
         },
         {
-          "id": "alc_25",
+          "id": "alc_402",
           "name": "Ле Гран Нуар Совиньон Блан, БУТЫЛКА",
           "price": 2500,
           "description": "Франция, белое сухое, 750 мл",
@@ -179,7 +171,7 @@
           "subcategory": "still"
         },
         {
-          "id": "alc_26",
+          "id": "alc_403",
           "name": "Ле Гран Нуар Пино Нуар, БУТЫЛКА",
           "price": 2500,
           "description": "Франция, красное сухое, 750 мл",
@@ -189,7 +181,7 @@
           "subcategory": "still"
         },
         {
-          "id": "alc_32",
+          "id": "alc_404",
           "name": "Пино Гриджио, БУТЫЛКА",
           "price": 2500,
           "description": "Италия, белое сухое, 750 мл",
@@ -199,7 +191,7 @@
           "subcategory": "still"
         },
         {
-          "id": "alc_7",
+          "id": "alc_500",
           "name": "Коньяк Кизляр 3*, ПОРЦИЯ",
           "price": 300,
           "description": "50 мл",
@@ -209,7 +201,7 @@
           "subcategory": "strong"
         },
         {
-          "id": "alc_8",
+          "id": "alc_501",
           "name": "Настойка Хреновуха, ПОРЦИЯ",
           "price": 190,
           "description": "Ванильное Небо, 50 мл",
@@ -219,7 +211,7 @@
           "subcategory": "strong"
         },
         {
-          "id": "alc_9",
+          "id": "alc_502",
           "name": "Настойка Клюковка, ПОРЦИЯ",
           "price": 190,
           "description": "Ванильное Небо, 50 мл",
@@ -229,7 +221,7 @@
           "subcategory": "strong"
         },
         {
-          "id": "alc_13",
+          "id": "alc_503",
           "name": "Виски Джеймесон, ПОРЦИЯ",
           "price": 480,
           "description": "Ирландия, 50 мл",
@@ -239,7 +231,7 @@
           "subcategory": "strong"
         },
         {
-          "id": "alc_27",
+          "id": "alc_504",
           "name": "Коньяк Кизляр 3*, БУТЫЛКА",
           "price": 3000,
           "description": "500 мл (содержит 10 порций)",
@@ -249,7 +241,7 @@
           "subcategory": "strong"
         },
         {
-          "id": "alc_28",
+          "id": "alc_505",
           "name": "Настойка Хреновуха, БУТЫЛКА",
           "price": 1900,
           "description": "Ванильное Небо, 500 мл (содержит 10 порций)",
@@ -259,7 +251,7 @@
           "subcategory": "strong"
         },
         {
-          "id": "alc_29",
+          "id": "alc_506",
           "name": "Настойка Клюковка, БУТЫЛКА",
           "price": 1900,
           "description": "Ванильное Небо, 500 мл (содержит 10 порций)",
@@ -274,232 +266,60 @@
       "id": "non-alcohol",
       "title": "Безалкогольные напитки",
       "subcategories": [
-        {
-          "id": "hot",
-          "title": "Горячие напитки"
-        },
-        {
-          "id": "juices_water",
-          "title": "Соки / Воды"
-        }
+        { "id": "hot", "title": "Горячие напитки" },
+        { "id": "juices_water", "title": "Соки / Воды" }
       ],
       "items": [
-        {
-          "id": "hot_1",
-          "name": "Американо",
-          "price": 150,
-          "description": "150 мл",
-          "available": true,
-          "subcategory": "hot"
-        },
-        {
-          "id": "hot_2",
-          "name": "Капучино",
-          "price": 220,
-          "description": "150 мл",
-          "available": true,
-          "subcategory": "hot"
-        },
-        {
-          "id": "hot_3",
-          "name": "Эспрессо",
-          "price": 150,
-          "description": "30 мл",
-          "available": true,
-          "subcategory": "hot"
-        },
-        {
-          "id": "hot_4",
-          "name": "Чай черный",
-          "price": 50,
-          "description": "Пакетированный",
-          "available": true,
-          "subcategory": "hot"
-        },
-        {
-          "id": "hot_5",
-          "name": "Чай зеленый",
-          "price": 50,
-          "description": "Пакетированный",
-          "available": true,
-          "subcategory": "hot"
-        },
-        {
-          "id": "nalc_1",
-          "name": "Вода Хрустальная",
-          "price": 120,
-          "description": "ПЭТ, 500 мл",
-          "available": true,
-          "subcategory": "juices_water"
-        },
-        {
-          "id": "nalc_2",
-          "name": "Лимонад Добрый Кола",
-          "price": 180,
-          "description": "ПЭТ, 500 мл",
-          "available": true,
-          "subcategory": "juices_water"
-        },
-        {
-          "id": "nalc_3",
-          "name": "Лимонад Добрый Фанта",
-          "price": 180,
-          "description": "ПЭТ, 500 мл",
-          "available": true,
-          "subcategory": "juices_water"
-        },
-        {
-          "id": "nalc_4",
-          "name": "Лимонад Добрый Спрайт",
-          "price": 180,
-          "description": "ПЭТ, 500 мл",
-          "available": true,
-          "subcategory": "juices_water"
-        },
-        {
-          "id": "nalc_5",
-          "name": "Сок Яблочный",
-          "price": 70,
-          "description": "200 мл",
-          "available": true,
-          "subcategory": "juices_water"
-        }
+        { "id": "hot_1", "name": "Американо", "price": 150, "description": "150 мл", "available": true, "subcategory": "hot" },
+        { "id": "hot_2", "name": "Капучино", "price": 220, "description": "150 мл", "available": true, "subcategory": "hot" },
+        { "id": "hot_3", "name": "Эспрессо", "price": 150, "description": "30 мл", "available": true, "subcategory": "hot" },
+        { "id": "hot_4", "name": "Чай черный", "price": 50, "description": "Пакетированный", "available": true, "subcategory": "hot" },
+        { "id": "hot_5", "name": "Чай зеленый", "price": 50, "description": "Пакетированный", "available": true, "subcategory": "hot" },
+        { "id": "nalc_1", "name": "Вода Хрустальная", "price": 120, "description": "ПЭТ, 500 мл", "available": true, "subcategory": "juices_water" },
+        { "id": "nalc_2", "name": "Лимонад Добрый Кола", "price": 180, "description": "ПЭТ, 500 мл", "available": true, "subcategory": "juices_water" },
+        { "id": "nalc_3", "name": "Лимонад Добрый Фанта", "price": 180, "description": "ПЭТ, 500 мл", "available": true, "subcategory": "juices_water" },
+        { "id": "nalc_4", "name": "Лимонад Добрый Спрайт", "price": 180, "description": "ПЭТ, 500 мл", "available": true, "subcategory": "juices_water" },
+        { "id": "nalc_5", "name": "Сок Яблочный", "price": 70, "description": "200 мл", "available": true, "subcategory": "juices_water" }
       ]
     },
     {
       "id": "snacks",
       "title": "Закуски",
       "items": [
-        {
-          "id": "snack_1",
-          "name": "Гренки ржаные с чесноком",
-          "price": 190,
-          "description": "С соусом Тартар, 150 г",
-          "available": true
-        },
-        {
-          "id": "snack_2",
-          "name": "Сырные палочки фри",
-          "price": 250,
-          "description": "С клюквенным соусом, 6 шт.",
-          "available": true
-        },
-        {
-          "id": "snack_3",
-          "name": "Картофель фри",
-          "price": 160,
-          "description": "Сырный соус в комплекте, 120 г",
-          "available": true
-        }
+        { "id": "snack_1", "name": "Гренки ржаные с чесноком", "price": 190, "description": "С соусом Тартар, 150 г", "available": true },
+        { "id": "snack_2", "name": "Сырные палочки фри", "price": 250, "description": "С клюквенным соусом, 6 шт.", "available": true },
+        { "id": "snack_3", "name": "Картофель фри", "price": 160, "description": "Сырный соус в комплекте, 120 г", "available": true }
       ]
     },
     {
       "id": "salads",
       "title": "Салаты",
       "items": [
-        {
-          "id": "salad_1",
-          "name": "Салат Греческий",
-          "price": 290,
-          "description": "Свежие овощи, сыр Фета, маслины, 180 г",
-          "available": true
-        },
-        {
-          "id": "salad_2",
-          "name": "Салат Цезарь с курицей",
-          "price": 380,
-          "description": "Классический соус, сухарики, черри, Пармезан, 200 г",
-          "available": true
-        }
+        { "id": "salad_1", "name": "Салат Греческий", "price": 290, "description": "Свежие овощи, сыр Фета, маслины, 180 г", "available": true },
+        { "id": "salad_2", "name": "Салат Цезарь с курицей", "price": 380, "description": "Классический соус, сухарики, черри, Пармезан, 200 г", "available": true }
       ]
     },
     {
       "id": "bakery",
       "title": "Выпечка",
       "items": [
-        {
-          "id": "bake_1",
-          "name": "Пирожок с мясом",
-          "price": 80,
-          "description": "40 г",
-          "available": true
-        },
-        {
-          "id": "bake_2",
-          "name": "Пирожок с сомом и щукой",
-          "price": 110,
-          "description": "40 г",
-          "available": true
-        },
-        {
-          "id": "bake_3",
-          "name": "Пирожок ржаной с грибами",
-          "price": 80,
-          "description": "40 г",
-          "available": true
-        },
-        {
-          "id": "bake_4",
-          "name": "Пирожок с капустой и яйцом",
-          "price": 60,
-          "description": "40 г",
-          "available": true
-        }
+        { "id": "bake_1", "name": "Пирожок с мясом", "price": 80, "description": "40 г", "available": true },
+        { "id": "bake_2", "name": "Пирожок с сомом и щукой", "price": 110, "description": "40 г", "available": true },
+        { "id": "bake_3", "name": "Пирожок ржаной с грибами", "price": 80, "description": "40 г", "available": true },
+        { "id": "bake_4", "name": "Пирожок с капустой и яйцом", "price": 60, "description": "40 г", "available": true }
       ]
     },
     {
       "id": "desserts",
       "title": "Десерты",
       "items": [
-        {
-          "id": "des_1",
-          "name": "Макрони",
-          "price": 250,
-          "description": "Набор из 3-х штук",
-          "available": true
-        },
-        {
-          "id": "des_2",
-          "name": "Эклер Ванильный",
-          "price": 100,
-          "description": "-",
-          "available": true
-        },
-        {
-          "id": "des_3",
-          "name": "Эклер Шоколадный",
-          "price": 100,
-          "description": "-",
-          "available": true
-        },
-        {
-          "id": "des_4",
-          "name": "Корзиночка Восточная",
-          "price": 110,
-          "description": "С сухофруктами",
-          "available": true
-        },
-        {
-          "id": "des_5",
-          "name": "Медовик",
-          "price": 80,
-          "description": "-",
-          "available": true
-        },
-        {
-          "id": "des_6",
-          "name": "Брауни",
-          "price": 80,
-          "description": "-",
-          "available": true
-        },
-        {
-          "id": "des_7",
-          "name": "Красный бархат",
-          "price": 90,
-          "description": "-",
-          "available": true
-        }
+        { "id": "des_1", "name": "Макрони", "price": 250, "description": "Набор из 3-х штук", "available": true },
+        { "id": "des_2", "name": "Эклер Ванильный", "price": 100, "description": "-", "available": true },
+        { "id": "des_3", "name": "Эклер Шоколадный", "price": 100, "description": "-", "available": true },
+        { "id": "des_4", "name": "Корзиночка Восточная", "price": 110, "description": "С сухофруктами", "available": true },
+        { "id": "des_5", "name": "Медовик", "price": 80, "description": "-", "available": true },
+        { "id": "des_6", "name": "Брауни", "price": 80, "description": "-", "available": true },
+        { "id": "des_7", "name": "Красный бархат", "price": 90, "description": "-", "available": true }
       ]
     }
   ]
