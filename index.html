@@ -1,544 +1,1928 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Цифровое Меню & Управление</title>
-    
-    <!-- Подключение Firebase CDN -->
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>БУФЕТ В КЗЦ</title>
+  
+  <!-- Окрашивание статус-бара мобильных браузеров в цвет хедера (#1F1713) -->
+  <meta name="theme-color" content="#1F1713">
+  
+  <!-- Подключение Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Иконки Lucide для наглядного UI -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- Конфигурация кастомных цветов из предоставленной палитры -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              peach: '#C7886B',     // Песочно-персиковый / Терракота
+              dark: '#1F1713',      // Очень темный шоколад
+              brown: '#604539',     // Шоколадно-коричневый
+              cream: '#FFECD2',     // Светлый кремово-бежевый фон
+            }
+          }
+        }
+      }
+    }
+  </script>
 
-    <style>
-        :root {
-            --bg-color: #121212;
-            --surface-color: #1e1e1e;
-            --primary-color: #e5aa70;
-            --text-color: #ffffff;
-            --text-muted: #a0a0a0;
-            --border-color: #333333;
-            --danger-color: #cf6679;
-            --success-color: #4caf50;
-        }
-
-        body {
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            margin: 0;
-            padding: 0;
-        }
-
-        header {
-            background-color: var(--surface-color);
-            padding: 15px;
-            text-align: center;
-            border-bottom: 1px solid var(--border-color);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 15px;
-        }
-
-        .tabs {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-
-        .tab-btn {
-            background: none;
-            border: 1px solid var(--primary-color);
-            color: var(--primary-color);
-            padding: 8px 16px;
-            cursor: pointer;
-            border-radius: 20px;
-            transition: all 0.3s;
-        }
-
-        .tab-btn.active {
-            background-color: var(--primary-color);
-            color: var(--bg-color);
-            font-weight: bold;
-        }
-
-        .page {
-            display: none;
-        }
-
-        .page.active {
-            display: block;
-        }
-
-        /* Стили Меню (Клиентская часть) */
-        .category-section {
-            margin-bottom: 30px;
-        }
-
-        .category-title {
-            color: var(--primary-color);
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 5px;
-            margin-bottom: 15px;
-        }
-
-        .menu-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            padding: 12px 0;
-            border-bottom: 1px solid #222;
-        }
-
-        .menu-item.out-of-stock {
-            opacity: 0.4;
-        }
-
-        .item-info {
-            flex: 1;
-            padding-right: 15px;
-        }
-
-        .item-name {
-            font-weight: bold;
-            font-size: 1.1em;
-        }
-
-        .item-description {
-            color: var(--text-muted);
-            font-size: 0.9em;
-            margin-top: 4px;
-        }
-
-        .item-price {
-            font-weight: bold;
-            color: var(--primary-color);
-            white-space: nowrap;
-        }
-
-        .status-badge {
-            font-size: 0.8em;
-            background-color: var(--danger-color);
-            color: white;
-            padding: 2px 6px;
-            border-radius: 4px;
-            margin-left: 5px;
-            display: inline-block;
-        }
-
-        /* Стили Админки */
-        .admin-section {
-            background-color: var(--surface-color);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 20px;
-        }
-
-        .form-group {
-            margin-bottom: 15px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            color: var(--text-muted);
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 10px;
-            box-sizing: border-box;
-            background-color: var(--bg-color);
-            border: 1px solid var(--border-color);
-            color: var(--text-color);
-            border-radius: 4px;
-        }
-
-        .btn {
-            background-color: var(--primary-color);
-            color: var(--bg-color);
-            border: none;
-            padding: 10px 20px;
-            font-weight: bold;
-            cursor: pointer;
-            border-radius: 4px;
-            width: 100%;
-        }
-
-        .btn-danger {
-            background-color: var(--danger-color);
-            color: white;
-        }
-
-        .admin-item-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 10px;
-            border-bottom: 1px solid var(--border-color);
-            gap: 10px;
-        }
-
-        .admin-item-actions {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-
-        .toggle-switch {
-            position: relative;
-            display: inline-block;
-            width: 50px;
-            height: 24px;
-        }
-
-        .toggle-switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #ccc;
-            transition: .4s;
-            border-radius: 24px;
-        }
-
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 16px; width: 16px;
-            left: 4px; bottom: 4px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-
-        input:checked + .slider {
-            background-color: var(--success-color);
-        }
-
-        input:checked + .slider:before {
-            transform: translateX(26px);
-        }
-
-        .inline-edit-input {
-            background: transparent;
-            border: none;
-            border-bottom: 1px dashed var(--border-color);
-            color: white;
-            padding: 4px;
-            font-size: 0.95em;
-        }
-        .inline-edit-input:focus {
-            outline: none;
-            border-bottom: 1px solid var(--primary-color);
-        }
-    </style>
+  <!-- Стили для плавности интерфейса -->
+  <style>
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in {
+      animation: fadeIn 0.3s ease-out forwards;
+    }
+    @keyframes pulse-border {
+      0%, 100% { border-color: rgba(239, 68, 68, 0.4); box-shadow: 0 0 0 0px rgba(239, 68, 68, 0.4); }
+      50% { border-color: rgba(239, 68, 68, 1); box-shadow: 0 0 10px 4px rgba(239, 68, 68, 0.2); }
+    }
+    .pulse-danger {
+      animation: pulse-border 1.5s infinite;
+    }
+    /* Скрытие стандартного скроллбара */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
 </head>
-<body>
+<body class="bg-brand-cream text-brand-dark font-sans min-h-screen selection:bg-brand-peach selection:text-white">
 
-    <header>
-        <h1>Наше Заведение</h1>
-        <div class="tabs">
-            <button class="tab-btn active" onclick="switchPage('menu-page')">Меню</button>
-            <button class="tab-btn" onclick="switchPage('admin-page')">Управление</button>
-        </div>
-    </header>
-
-    <div class="container">
-        <!-- СТРАНИЦА МЕНЮ (ДЛЯ КЛИЕНТОВ) -->
-        <div id="menu-page" class="page active">
-            <div id="menu-container">Загрузка меню...</div>
-        </div>
-
-        <!-- СТРАНИЦА АДМИНКИ (ДЛЯ ПЕРСОНАЛА) -->
-        <div id="admin-page" class="page">
-            <!-- Форма добавления нового блюда -->
-            <div class="admin-section">
-                <h3>Добавить новую позицию</h3>
-                <form id="add-item-form" onsubmit="addNewItem(event)">
-                    <div class="form-group">
-                        <label>Категория</label>
-                        <select id="new-item-category" class="form-control" onchange="updateSubcategoryVisibility()" required>
-                            <option value="Кухня">Кухня</option>
-                            <option value="Бар">Бар</option>
-                        </select>
-                    </div>
-                    <div class="form-group" id="subcategory-group" style="display:none;">
-                        <label>Подкатегория</label>
-                        <select id="new-item-subcategory" class="form-control">
-                            <option value="Напитки">Напитки</option>
-                            <option value="Алкоголь">Алкоголь</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Название блюда / напитка</label>
-                        <input type="text" id="new-item-name" class="form-control" placeholder="Например: Капучино" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Описание</label>
-                        <input type="text" id="new-item-desc" class="form-control" placeholder="Состав, объем, вес...">
-                    </div>
-                    <div class="form-group">
-                        <label>Цена (руб.)</label>
-                        <input type="number" id="new-item-price" class="form-control" placeholder="350" required>
-                    </div>
-                    <button type="submit" class="btn">Добавить в меню</button>
-                </form>
-            </div>
-
-            <!-- Список позиций для быстрого редактирования остатков и цен -->
-            <div class="admin-section">
-                <h3>Редактор позиций и остатков</h3>
-                <div id="admin-menu-list">Загрузка списка управления...</div>
-            </div>
-        </div>
+  <div id="app" class="max-w-md mx-auto bg-brand-cream min-h-screen relative flex flex-col shadow-2xl">
+    <!-- Приложение монтируется динамически через JS -->
+    <div id="loader" class="flex flex-col items-center justify-center flex-1 py-20">
+      <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-peach"></div>
+      <p class="mt-4 text-brand-brown font-medium">Подключение к системе заказов...</p>
     </div>
+  </div>
 
-    <script>
-        // CONFIG: Замените на ваши актуальные ключи Firebase проекта
-        const firebaseConfig = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_PROJECT_ID.appspot.com",
-            messagingSenderId: "YOUR_SENDER_ID",
-            appId: "YOUR_APP_ID"
+  <!-- Подключение Firebase через официальные CDN-модули (v11.6.1) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { 
+      getAuth, 
+      signInWithCustomToken, 
+      signInAnonymously, 
+      onAuthStateChanged 
+    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { 
+      getFirestore, 
+      collection, 
+      doc, 
+      setDoc, 
+      getDoc, 
+      addDoc, 
+      updateDoc, 
+      deleteDoc, 
+      onSnapshot, 
+      query 
+    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // --- Конфигурация Firebase ---
+    const firebaseConfig = typeof __firebase_config !== 'undefined' 
+      ? JSON.parse(__firebase_config) 
+      : {
+          apiKey: "AIzaSyBG_1ZBE4kd_6cy79fWlycPnE8lsX5p42s",
+          authDomain: "vn-buffet.firebaseapp.com",
+          projectId: "vn-buffet",
+          storageBucket: "vn-buffet.firebasestorage.app",
+          messagingSenderId: "796549505290",
+          appId: "1:796549505290:web:5cd49810ce9a2235649af3"
         };
 
-        // Инициализация Firebase
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
-        }
-        const db = firebase.firestore();
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'vn-buffet-app';
 
-        // Переключение между вкладками
-        function switchPage(pageId) {
-            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            
-            document.getElementById(pageId).classList.add('active');
-            event.target.classList.add('active');
+    // Инициализация сервисов Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // --- Состояние приложения ---
+    let state = {
+      screen: 'login', // 'login', 'guest_menu', 'admin_panel'
+      tableNumber: null,
+      menuData: null,
+      inventory: {}, // Реальное количество порций на складе { itemId: count } из Firestore
+      customNames: {}, // Динамически измененные сотрудником названия блюд { itemId: customName } из Firestore
+      activeCategoryId: '',
+      activeSubcategoryId: '', // Активный виртуальный подраздел категории
+      cart: {}, // Храним { itemId: quantity }
+      orders: [], // Real-time список всех заказов из Firestore
+      adminTab: 'new', // 'new' | 'served' | 'inventory' | 'archive'
+      selectedBillOrder: null, // Выбранный заказ для чека
+      selectedAdminTable: null, // Выбранный стол для детального просмотра в панели сотрудника
+      showConfirmOrderModal: false, // Окно проверки корзины
+      showGuestHistoryModal: false, // Модальное окно истории заказов гостя
+      user: null, // Авторизованный в Firebase пользователь
+      isSubmittingOrder: false, // Флаг процесса отправки заказа в базу данных
+    };
+
+    // --- Системные константы ---
+    const ADMIN_PASSWORD = "56165616";
+    const MIN_TABLE = 1;
+    const MAX_TABLE = 50; 
+    const DEFAULT_STOCK = 30; // По умолчанию даем 30 порций на склад при инициализации новой позиции
+
+    // Ссылки на коллекции по правилу безопасных путей (RULE 1)
+    const ordersCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'orders');
+    const inventoryCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'inventory');
+    const namesCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'menu_names');
+
+    // Экспонируем функции в глобальную область видимости
+    window.addToCart = addToCart;
+    window.removeFromCart = removeFromCart;
+    window.clearCart = clearCart;
+    window.handleGuestLogin = handleGuestLogin;
+    window.handleAdminLogin = handleAdminLogin;
+    window.checkOrderBeforeSubmit = checkOrderBeforeSubmit;
+    window.submitOrder = submitOrder;
+    window.updateOrderStatus = updateOrderStatus;
+    window.payAllOrdersForTable = payAllOrdersForTable;
+    window.deleteOrder = deleteOrder;
+    window.openBill = openBill;
+    window.closeBillModal = closeBillModal;
+    window.printBill = printBill;
+    window.changeCategory = changeCategory;
+    window.changeSubcategory = changeSubcategory;
+    window.closeConfirmOrderModal = closeConfirmOrderModal;
+    window.toggleGuestHistoryModal = toggleGuestHistoryModal;
+    window.logout = logout;
+    window.requestBillPayment = requestBillPayment;
+    window.switchAdminTab = switchAdminTab;
+    window.selectAdminTable = selectAdminTable;
+    window.closeAdminTableModal = closeAdminTableModal;
+    
+    // Глобальные функции для управления остатками (Inventory)
+    window.setStockZero = setStockZero;
+    window.handleManualStockInput = handleManualStockInput;
+
+    // --- Вспомогательная функция уведомлений в UI ---
+    function showNotification(message, type = 'info') {
+      console.log(`[${type.toUpperCase()}] ${message}`);
+    }
+
+    // --- Вспомогательный метод для получения актуального названия позиции ---
+    function getItemName(item) {
+      if (!item) return '';
+      return state.customNames[item.id] || item.name;
+    }
+
+    // --- Загрузка и инициализация данных ---
+    async function initApp() {
+      try {
+        // 1. Загрузка файла меню menu.json
+        const response = await fetch('menu.json');
+        if (!response.ok) throw new Error('Не удалось загрузить menu.json');
+        state.menuData = await response.json();
+        
+        if (state.menuData && state.menuData.categories.length > 0) {
+          state.activeCategoryId = state.menuData.categories[0].id;
+          const firstCat = state.menuData.categories[0];
+          if (firstCat.subcategories && firstCat.subcategories.length > 0) {
+            state.activeSubcategoryId = firstCat.subcategories[0].id;
+          } else {
+            state.activeSubcategoryId = '';
+          }
         }
 
-        // Показ/скрытие подкатегорий в форме
-        function updateSubcategoryVisibility() {
-            const cat = document.getElementById('new-item-category').value;
-            document.getElementById('subcategory-group').style.display = (cat === 'Бар') ? 'block' : 'none';
+        // 2. Авторизация в Firebase
+        const initAuth = async () => {
+          if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+            await signInWithCustomToken(auth, __initial_auth_token);
+          } else {
+            await signInAnonymously(auth);
+          }
+        };
+        await initAuth();
+
+        // 3. Отслеживание состояния авторизации
+        onAuthStateChanged(auth, (firebaseUser) => {
+          state.user = firebaseUser;
+          if (firebaseUser) {
+            subscribeToOrders();
+            subscribeToInventory();
+            subscribeToCustomNames();
+          }
+        });
+
+        // 4. Проверяем параметры из URL (?table=15 или ?admin=true)
+        const urlParams = new URLSearchParams(window.location.search);
+        const tableParam = urlParams.get('table');
+        const adminParam = urlParams.get('admin');
+
+        if (adminParam === 'true') {
+          state.screen = 'admin_panel';
+          localStorage.setItem('bufet_role', 'admin');
+          showNotification('Успешный вход сотрудника', 'success');
+        } else if (tableParam) {
+          const tableNum = parseInt(tableParam, 10);
+          if (tableNum >= MIN_TABLE && tableNum <= MAX_TABLE) {
+            state.tableNumber = tableNum;
+            state.screen = 'guest_menu';
+            localStorage.setItem('bufet_role', 'guest');
+            localStorage.setItem('bufet_table', tableNum);
+          }
+        } else {
+          // Проверяем сохраненную сессию
+          const savedRole = localStorage.getItem('bufet_role');
+          const savedTable = localStorage.getItem('bufet_table');
+
+          if (savedRole === 'admin') {
+            state.screen = 'admin_panel';
+            showNotification('Восстановлена сессия сотрудника', 'success');
+          } else if (savedRole === 'guest' && savedTable) {
+            state.tableNumber = parseInt(savedTable, 10);
+            state.screen = 'guest_menu';
+            showNotification(`Стол №${savedTable}. Добро пожаловать назад!`, 'success');
+          }
         }
 
-        // Авто-инициализация базы данных из старого menu.json, если Firestore пуст
-        async function checkAndInitDatabase(menuItems) {
-            if (menuItems.length === 0) {
+        render();
+      } catch (error) {
+        console.error(error);
+        document.getElementById('app').innerHTML = `
+          <div class="p-8 text-center flex flex-col justify-center items-center min-h-screen animate-fade-in">
+            <i data-lucide="alert-triangle" class="w-16 h-16 text-red-500 mb-4"></i>
+            <h2 class="text-xl font-bold text-brand-dark mb-2">Ошибка подключения</h2>
+            <p class="text-brand-brown text-sm mb-6">Убедитесь, что файл <strong>menu.json</strong> лежит в той же папке, что и index.html.</p>
+            <button onclick="location.reload()" class="bg-brand-peach text-white font-bold py-2 px-6 rounded-xl hover:bg-brand-brown transition">Повторить попытку</button>
+          </div>
+        `;
+        lucide.createIcons();
+      }
+    }
+
+    // --- Real-time подписка на заказы из Firestore ---
+    function subscribeToOrders() {
+      if (!state.user) return;
+      const q = query(ordersCollectionRef);
+
+      onSnapshot(q, (snapshot) => {
+        const fetchedOrders = [];
+        snapshot.forEach((doc) => {
+          fetchedOrders.push({ id: doc.id, ...doc.data() });
+        });
+
+        // Сортировка: сначала те, кто ждет оплату (waitingForPay), затем по времени создания
+        fetchedOrders.sort((a, b) => {
+          const aWait = a.waitingForPay ? 1 : 0;
+          const bWait = b.waitingForPay ? 1 : 0;
+          if (aWait !== bWait) {
+            return bWait - aWait;
+          }
+          return new Date(b.timestamp) - new Date(a.timestamp);
+        });
+
+        state.orders = fetchedOrders;
+        render();
+      }, (error) => {
+        console.error("Ошибка при чтении Firestore (заказы):", error);
+      });
+    }
+
+    // --- Real-time подписка на остатки (inventory) ---
+    function subscribeToInventory() {
+      if (!state.user) return;
+      const q = query(inventoryCollectionRef);
+
+      onSnapshot(q, (snapshot) => {
+        const stockData = {};
+        snapshot.forEach((doc) => {
+          stockData[doc.id] = doc.data().stock;
+        });
+
+        state.inventory = stockData;
+
+        // Авто-инициализация остатков порций для позиций из menu.json
+        if (state.menuData && state.menuData.categories) {
+          state.menuData.categories.forEach(category => {
+            category.items.forEach(async (item) => {
+              const linkId = item.stockLinkId || item.id;
+              if (state.inventory[linkId] === undefined) {
                 try {
-                    const response = await fetch('menu.json');
-                    if (!response.ok) return;
-                    const localData = await response.json();
-                    
-                    // Парсинг старого формата и пакетная загрузка в Firestore
-                    const batch = db.batch();
-                    
-                    // Кухня
-                    if (localData.Кухня) {
-                        localData.Кухня.forEach(item => {
-                            const docRef = db.collection('menu').doc();
-                            batch.set(docRef, {
-                                category: 'Кухня',
-                                subcategory: '',
-                                name: item.name,
-                                description: item.description || '',
-                                price: Number(item.price),
-                                inStock: item.inStock !== undefined ? item.inStock : true,
-                                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                            });
-                        });
-                    }
-                    // Бар (Напитки и Алкоголь)
-                    if (localData.Бар) {
-                        ['Напитки', 'Алкоголь'].forEach(subCat => {
-                            if (localData.Бар[subCat]) {
-                                localData.Бар[subCat].forEach(item => {
-                                    const docRef = db.collection('menu').doc();
-                                    batch.set(docRef, {
-                                        category: 'Бар',
-                                        subcategory: subCat,
-                                        name: item.name,
-                                        description: item.description || '',
-                                        price: Number(item.price),
-                                        inStock: item.inStock !== undefined ? item.inStock : true,
-                                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                                    });
-                                });
-                            }
-                        });
-                    }
-                    await batch.commit();
-                    console.log('База данных успешно инициализирована из menu.json');
-                } catch (err) {
-                    console.log('Локальный файл menu.json не найден или пуст. Начните заполнение с чистого листа.');
+                  const itemDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'inventory', linkId);
+                  await setDoc(itemDocRef, { stock: DEFAULT_STOCK });
+                  state.inventory[linkId] = DEFAULT_STOCK;
+                } catch (e) {
+                  console.error("Ошибка при авто-инициализации остатка для:", linkId, e);
                 }
-            }
+              }
+            });
+          });
         }
 
-        // ПОЛУЧЕНИЕ ДАННЫХ ИЗ FIRESTORE В РЕАЛЬНОМ ВРЕМЕНИ
-        function subscribeToMenu() {
-            db.collection('menu').orderBy('name').onSnapshot(snapshot => {
-                const items = [];
-                snapshot.forEach(doc => {
-                    items.push({ id: doc.id, ...doc.data() });
-                });
+        render();
+      }, (error) => {
+        console.error("Ошибка при чтении Firestore (остатки):", error);
+      });
+    }
 
-                // Если база данных пуста, пробуем мигрировать данные из старого JSON
-                if (items.length === 0) {
-                    checkAndInitDatabase(items);
-                    return;
-                }
+    // --- Real-time подписка на кастомные названия блюд ---
+    function subscribeToCustomNames() {
+      if (!state.user) return;
+      const q = query(namesCollectionRef);
 
-                renderClientMenu(items);
-                renderAdminMenu(items);
-            });
+      onSnapshot(q, (snapshot) => {
+        const customNamesData = {};
+        snapshot.forEach((doc) => {
+          customNamesData[doc.id] = doc.data().name;
+        });
+        state.customNames = customNamesData;
+        render();
+      }, (error) => {
+        console.error("Ошибка при чтении Firestore (названия блюд):", error);
+      });
+    }
+
+    // Обработка ручного остатка
+    async function handleManualStockInput(stockId, value) {
+      if (!state.user) return;
+      
+      let parsed = parseInt(value.replace(/\D/g, ''), 10);
+      
+      if (isNaN(parsed) || parsed < 0) {
+        parsed = 0;
+      }
+      if (parsed > 999) {
+        parsed = 999;
+      }
+
+      try {
+        const itemDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'inventory', stockId);
+        await setDoc(itemDocRef, { stock: parsed }, { merge: true });
+        showNotification(`Остаток установлен: ${parsed} порц.`, 'success');
+      } catch (error) {
+        console.error("Ошибка записи ручного ввода остатка:", error);
+        showNotification('Ошибка обновления остатка', 'error');
+      }
+    }
+
+    async function setStockZero(stockId) {
+      if (!state.user) return;
+      try {
+        const itemDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'inventory', stockId);
+        await setDoc(itemDocRef, { stock: 0 }, { merge: true });
+        showNotification('Позиция переведена в стоп-лист', 'info');
+      } catch (error) {
+        console.error("Ошибка добавления в стоп-лист:", error);
+      }
+    }
+
+    // Расчет текущей загруженности корзины по конкретному складу
+    function getStockUsageInCart(stockId) {
+      let usage = 0;
+      Object.entries(state.cart).forEach(([cartItemId, count]) => {
+        const cartItem = findMenuItem(cartItemId);
+        if (cartItem) {
+          const itemStockId = cartItem.stockLinkId || cartItem.id;
+          if (itemStockId === stockId) {
+            const factor = cartItem.portionWeight !== undefined ? cartItem.portionWeight : 1;
+            usage += (count * factor);
+          }
+        }
+      });
+      return usage;
+    }
+
+    // Добавление товара в корзину
+    function addToCart(itemId) {
+      if (state.isSubmittingOrder) return;
+
+      const item = findMenuItem(itemId);
+      if (!item) return;
+
+      const stockId = item.stockLinkId || item.id;
+      const currentStock = state.inventory[stockId] !== undefined ? state.inventory[stockId] : DEFAULT_STOCK;
+      
+      const portionWeight = item.portionWeight !== undefined ? item.portionWeight : 1;
+      const currentUsageInCart = getStockUsageInCart(stockId);
+
+      if (currentUsageInCart + portionWeight > currentStock) {
+        if (portionWeight > 1) {
+          showNotification(`Недостаточно порций вина для целой бутылки! На складе осталось: ${currentStock - currentUsageInCart} порц.`, 'error');
+        } else {
+          showNotification(`Нельзя заказать больше! На складе осталось порций: ${currentStock - currentUsageInCart}`, 'error');
+        }
+        return;
+      }
+
+      state.cart[itemId] = (state.cart[itemId] || 0) + 1;
+      render();
+    }
+
+    // Изменение вкладок панели администратора
+    function switchAdminTab(tabName) {
+      state.adminTab = tabName;
+      state.selectedAdminTable = null;
+      render();
+    }
+
+    // Выбор стола в админке
+    function selectAdminTable(tableNum) {
+      state.selectedAdminTable = String(tableNum);
+      render();
+    }
+
+    // Закрытие модального окна стола
+    function closeAdminTableModal() {
+      state.selectedAdminTable = null;
+      render();
+    }
+
+    function removeFromCart(itemId) {
+      if (state.isSubmittingOrder) return;
+
+      if (state.cart[itemId]) {
+        state.cart[itemId] -= 1;
+        if (state.cart[itemId] === 0) {
+          delete state.cart[itemId];
+        }
+      }
+      if (getCartCount() === 0) {
+        state.showConfirmOrderModal = false;
+      }
+      render();
+    }
+
+    // Очистка корзины
+    function clearCart() {
+      if (state.isSubmittingOrder) return;
+      state.cart = {};
+      state.showConfirmOrderModal = false;
+      render();
+    }
+
+    // Вспомогательный метод поиска товара в меню
+    function findMenuItem(itemId) {
+      if (!state.menuData || !state.menuData.categories) return null;
+      for (const category of state.menuData.categories) {
+        const item = category.items.find(i => i.id === itemId);
+        if (item) return item;
+      }
+      return null;
+    }
+
+    // Итоговая сумма в корзине
+    function getCartTotal() {
+      return Object.entries(state.cart).reduce((total, [itemId, count]) => {
+        const item = findMenuItem(itemId);
+        return total + (item ? item.price * count : 0);
+      }, 0);
+    }
+
+    // Число позиций в корзине
+    function getCartCount() {
+      return Object.values(state.cart).reduce((a, b) => a + b, 0);
+    }
+
+    // Вспомогательная функция для генерации одинаковой верстки списка позиций во всех счетах
+    // Расстояние (gap) между количеством (хКол-во) и ценой уменьшено вдвое (с gap-4 на gap-2, а фиксированная ширина уменьшена с w-16 на w-12)
+    function generateBillItemsMarkup(items) {
+      return items.map(item => {
+        const originalItem = findMenuItem(item.id);
+        const displayName = originalItem ? getItemName(originalItem) : item.name;
+        
+        return `
+          <div class="flex justify-between items-center text-xs py-2 border-b border-brand-brown/10">
+            <span class="text-brand-dark font-medium">${displayName}</span>
+            <div class="text-right flex items-center gap-2 flex-shrink-0">
+              <span class="text-brand-peach font-bold">x${item.count}</span>
+              <span class="text-brand-brown font-semibold w-12 text-right">${item.price * item.count} ₽</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Переключение категории с автоматической плавной прокруткой к верху списка
+    function changeCategory(catId) {
+      state.activeCategoryId = catId;
+      
+      const category = state.menuData && state.menuData.categories 
+        ? state.menuData.categories.find(c => c.id === catId) 
+        : null;
+
+      if (category && category.subcategories && category.subcategories.length > 0) {
+        state.activeSubcategoryId = category.subcategories[0].id;
+      } else {
+        state.activeSubcategoryId = '';
+      }
+
+      render();
+      // Фокусировка на начало списка при смене категории
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Переключение подкатегории у гостя
+    function changeSubcategory(subId) {
+      state.activeSubcategoryId = subId;
+      render();
+      // Фокусировка на начало списка при смене подразделов внутри категории
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Запрос на оплату гостем
+    function requestBillPayment() {
+      if (!state.user || !state.tableNumber) return;
+      
+      const myActiveOrders = state.orders.filter(
+        order => String(order.table) === String(state.tableNumber) && order.status !== 'paid'
+      );
+
+      if (myActiveOrders.length === 0) {
+        showNotification("У вас нет активных неоплаченных заказов", "error");
+        return;
+      }
+
+      try {
+        myActiveOrders.forEach(async (order) => {
+          const orderDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', order.id);
+          await updateDoc(orderDocRef, { waitingForPay: true });
+        });
+        showNotification("Запрос на расчет отправлен. Официант скоро подойдет!", "success");
+        state.showGuestHistoryModal = false;
+        render();
+      } catch (error) {
+        console.error("Ошибка при отправке запроса оплаты:", error);
+        showNotification("Не удалось отправить запрос расчета", "error");
+      }
+    }
+
+    function closeConfirmOrderModal() {
+      if (state.isSubmittingOrder) return;
+      state.showConfirmOrderModal = false;
+      render();
+    }
+
+    // Модальное окно истории
+    function toggleGuestHistoryModal(value) {
+      state.showGuestHistoryModal = value;
+      render();
+    }
+
+    // Выход из системы
+    function logout() {
+      localStorage.removeItem('bufet_role');
+      localStorage.removeItem('bufet_table');
+      state.screen = 'login';
+      state.tableNumber = null;
+      state.cart = {};
+      state.selectedAdminTable = null;
+      render();
+    }
+
+    // --- Обработчики событий ---
+    function handleGuestLogin(event) {
+      event.preventDefault();
+      const inputVal = document.getElementById('tableInput').value;
+      const tableNum = parseInt(inputVal, 10);
+
+      if (tableNum >= MIN_TABLE && tableNum <= MAX_TABLE) {
+        state.tableNumber = tableNum;
+        state.screen = 'guest_menu';
+        localStorage.setItem('bufet_role', 'guest');
+        localStorage.setItem('bufet_table', tableNum);
+        render();
+      } else {
+        showNotification(`Пожалуйста, введите номер стола от ${MIN_TABLE} до ${MAX_TABLE}`, 'error');
+      }
+    }
+
+    // Авторизация сотрудника
+    function handleAdminLogin(event) {
+      event.preventDefault();
+      const passInput = document.getElementById('passwordInput').value;
+
+      if (passInput === ADMIN_PASSWORD) {
+        state.screen = 'admin_panel';
+        localStorage.setItem('bufet_role', 'admin');
+        render();
+      } else {
+        showNotification('Неверный пароль администратора!', 'error');
+      }
+    }
+
+    function checkOrderBeforeSubmit() {
+      if (Object.keys(state.cart).length === 0) return;
+      state.showConfirmOrderModal = true;
+      render();
+    }
+
+    // --- Отправка нового заказа ---
+    async function submitOrder() {
+      if (Object.keys(state.cart).length === 0) return;
+      if (state.isSubmittingOrder) return;
+
+      if (!state.user) {
+        showNotification("Сбой подключения. Авторизация будет перезапущена...", "error");
+        return;
+      }
+
+      state.isSubmittingOrder = true;
+      render();
+
+      try {
+        const totalDeductions = {};
+        for (const [itemId, count] of Object.entries(state.cart)) {
+          const item = findMenuItem(itemId);
+          if (item) {
+            const stockId = item.stockLinkId || item.id;
+            const factor = item.portionWeight !== undefined ? item.portionWeight : 1;
+            totalDeductions[stockId] = (totalDeductions[stockId] || 0) + (count * factor);
+          }
         }
 
-        // Отрисовка меню для клиентов
-        function renderClientMenu(items) {
-            const container = document.getElementById('menu-container');
-            container.innerHTML = '';
+        // Финальная проверка остатков
+        for (const [stockId, neededPortions] of Object.entries(totalDeductions)) {
+          const currentStock = state.inventory[stockId] !== undefined ? state.inventory[stockId] : DEFAULT_STOCK;
+          if (neededPortions > currentStock) {
+            showNotification(`Недостаточно порций на складе! Требуется: ${neededPortions}, доступно: ${currentStock}.`, 'error');
+            state.isSubmittingOrder = false;
+            render();
+            return;
+          }
+        }
 
-            // Структурируем данные для отображения
-            const categories = {
-                'Кухня': { items: [] },
-                'Бар - Напитки': { items: [] },
-                'Бар - Алкоголь': { items: [] }
-            };
+        const orderItems = Object.entries(state.cart).map(([itemId, count]) => {
+          const item = findMenuItem(itemId);
+          return {
+            id: itemId,
+            name: getItemName(item), 
+            price: Number(item.price),
+            count: Number(count)
+          };
+        });
 
-            items.forEach(item => {
-                if (item.category === 'Кухня') {
-                    categories['Кухня'].items.push(item);
-                } else if (item.category === 'Бар') {
-                    const key = `Бар - ${item.subcategory || 'Напитки'}`;
-                    if (categories[key]) categories[key].items.push(item);
-                }
-            });
+        const tableString = String(state.tableNumber);
 
-            for (const [title, catData] of Object.entries(categories)) {
-                if (catData.items.length === 0) continue;
+        const newOrder = {
+          table: tableString,
+          items: orderItems,
+          status: 'new',
+          timestamp: new Date().toISOString(),
+          total: Number(getCartTotal())
+        };
 
-                const section = document.createElement('div');
-                section.className = 'category-section';
-                section.innerHTML = `<h2 class="category-title">${title}</h2>`;
+        // 1. Списываем остатки из БД
+        for (const [stockId, neededPortions] of Object.entries(totalDeductions)) {
+          const currentStock = state.inventory[stockId] !== undefined ? state.inventory[stockId] : DEFAULT_STOCK;
+          const updatedStock = Math.max(0, currentStock - neededPortions);
+          const itemDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'inventory', stockId);
+          await setDoc(itemDocRef, { stock: updatedStock }, { merge: true });
+        }
 
-                catData.items.forEach(item => {
-                    const itemEl = document.createElement('div');
-                    itemEl.className = `menu-item ${!item.inStock ? 'out-of-stock' : ''}`;
-                    itemEl.innerHTML = `
-                        <div class="item-info">
-                            <span class="item-name">${item.name} ${!item.inStock ? '<span class="status-badge">Закончилось</span>' : ''}</span>
-                            <div class="item-description">${item.description || ''}</div>
+        // 2. Добавляем документ заказа
+        await addDoc(ordersCollectionRef, newOrder);
+        
+        state.cart = {};
+        state.showConfirmOrderModal = false;
+        
+        showNotification("Заказ успешно отправлен на кухню!", "success");
+      } catch (error) {
+        console.error("Ошибка сохранения заказа в Firestore:", error);
+        showNotification("Ошибка отправки заказа. Попробуйте еще раз.", "error");
+      } finally {
+        state.isSubmittingOrder = false;
+        render();
+      }
+    }
+
+    // Обновление статуса заказа в Firestore
+    async function updateOrderStatus(orderId, newStatus) {
+      if (!state.user) return;
+      try {
+        const orderDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId);
+        await updateDoc(orderDocRef, { status: newStatus });
+        
+        let message = 'Статус обновлен';
+        if (newStatus === 'served') message = 'Заказ успешно отмечен как отданный!';
+        if (newStatus === 'paid') message = 'Заказ успешно оплачен!';
+        showNotification(message, 'success');
+      } catch (error) {
+        console.error("Ошибка обновления статуса:", error);
+        showNotification("Ошибка сети при обновлении статуса", "error");
+      }
+    }
+
+    // Оплата всех заказов стола разом с физическим объединением
+    async function payAllOrdersForTable(tableNum) {
+      if (!state.user) return;
+
+      const activeTableOrders = state.orders.filter(
+        order => String(order.table) === String(tableNum) && order.status !== 'paid'
+      );
+      if (activeTableOrders.length === 0) return;
+
+      const combinedItemsMap = {};
+      let totalAmount = 0;
+
+      activeTableOrders.forEach(order => {
+        order.items.forEach(item => {
+          if (combinedItemsMap[item.id]) {
+            combinedItemsMap[item.id].count += item.count;
+          } else {
+            combinedItemsMap[item.id] = { ...item };
+          }
+        });
+        totalAmount += order.total;
+      });
+
+      const combinedOrderId = 'ord_comb_' + Date.now();
+      const combinedPaidOrder = {
+        table: String(tableNum),
+        items: Object.values(combinedItemsMap),
+        status: 'paid',
+        timestamp: new Date().toISOString(),
+        total: totalAmount
+      };
+
+      try {
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'orders', combinedOrderId), combinedPaidOrder);
+
+        for (const order of activeTableOrders) {
+          await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'orders', order.id));
+        }
+
+        state.selectedAdminTable = null;
+        showNotification(`Все заказы стола №${tableNum} успешно объединены и оплачены!`, 'success');
+      } catch (error) {
+        console.error("Ошибка при оплате стола:", error);
+        showNotification("Ошибка сети при проведении оплаты", "error");
+      }
+    }
+
+    // Полное удаление заказа из базы данных Firestore
+    async function deleteOrder(orderId) {
+      if (!state.user) return;
+      if (confirm('Вы уверены, что хотите окончательно удалить этот заказ из базы?')) {
+        try {
+          await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId));
+          showNotification('Заказ удален', 'info');
+        } catch (error) {
+          console.error("Ошибка удаления:", error);
+          showNotification("Не удалось удалить заказ", "error");
+        }
+      }
+    }
+
+    // Открытие чека
+    function openBill(orderId) {
+      const order = state.orders.find(o => o.id === orderId);
+      if (order) {
+        state.selectedBillOrder = order;
+        render();
+      }
+    }
+
+    // Закрытие чека
+    function closeBillModal() {
+      state.selectedBillOrder = null;
+      render();
+    }
+
+    // Печать гостевого счета для конкретного заказа
+    function printBill() {
+      const printWindow = window.open('', '_blank');
+      const order = state.selectedBillOrder;
+      if (!order) return;
+
+      const itemsHtml = order.items.map(item => {
+        const originalItem = findMenuItem(item.id);
+        const displayName = originalItem ? getItemName(originalItem) : item.name;
+        return `
+          <tr style="border-bottom: 1px dashed #604539;">
+            <td style="padding: 8px 0; font-family: monospace; font-size: 14px;">${displayName} x ${item.count}</td>
+            <td style="padding: 8px 0; text-align: right; font-family: monospace; font-size: 14px;">${item.price * item.count} ₽</td>
+          </tr>
+        `;
+      }).join('');
+
+      printWindow.document.write(`
+        <html>
+        <head>
+          <title>Счет - Заказ №${order.id.substring(4, 10)}</title>
+          <style>
+            body { font-family: 'Courier New', Courier, monospace; color: #1F1713; background: #fff; padding: 20px; max-width: 320px; margin: 0 auto; }
+            h2 { text-align: center; margin-bottom: 5px; font-size: 18px; }
+            .center { text-align: center; font-size: 12px; }
+            .right { text-align: right; }
+            .divider { border-top: 1px dashed #000; margin: 10px 0; }
+            table { width: 100%; border-collapse: collapse; }
+          </style>
+        </head>
+        <body onload="window.print(); window.close();">
+          <h2>СЧЕТ НА ОПЛАТУ</h2>
+          <p class="center">БУФЕТ В КЗЦ</p>
+          <div class="divider"></div>
+          <p><strong>ЗАКАЗ:</strong> ${order.id.substring(0, 12)}</p>
+          <p><strong>СТОЛ №:</strong> ${order.table}</p>
+          <p><strong>ДАТА:</strong> ${new Date(order.timestamp).toLocaleString('ru-RU')}</p>
+          <div class="divider"></div>
+          <table>
+            <thead>
+              <tr style="border-bottom: 1px solid #000;">
+                <th style="text-align: left; padding-bottom: 5px; font-size: 12px;">Позиция</th>
+                <th style="text-align: right; padding-bottom: 5px; font-size: 12px;">Сумма</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+            </tbody>
+          </table>
+          <div class="divider"></div>
+          <h3 style="display: flex; justify-content: space-between; margin-top: 10px; font-size: 16px;">
+            <span>ИТОГО К ОПЛАТЕ:</span>
+            <span>${order.total} ₽</span>
+          </h3>
+          <div class="divider"></div>
+          <p class="center" style="font-size: 11px; margin-top: 20px;">Пожалуйста, оплатите счет на кассе.<br>Спасибо за ваш заказ!</p>
+        </body>
+        </html>
+      `);
+      printWindow.document.close();
+    }
+
+    // --- Функция генерации интерфейса (Рендеринг) ---
+    function render() {
+      const container = document.getElementById('app');
+
+      // ----------------------------------------------------
+      // СЦЕНАРИЙ 1: ЭКРАН ВХОДА (LOGIN SCREEN)
+      // ----------------------------------------------------
+      if (state.screen === 'login') {
+        container.className = "max-w-md mx-auto bg-brand-cream min-h-screen relative flex flex-col justify-between p-6 shadow-2xl animate-fade-in";
+        container.innerHTML = `
+          <div class="flex-1 flex flex-col justify-center py-4">
+            <!-- Логотип/Заголовок -->
+            <div class="text-center mb-8">
+              <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-brand-peach text-white mb-3 shadow-md">
+                <i data-lucide="chef-hat" class="w-8 h-8"></i>
+              </div>
+              <h1 class="text-2xl font-extrabold text-brand-dark tracking-tight uppercase">БУФЕТ В КЗЦ</h1>
+              <p class="text-xs text-brand-brown font-semibold mt-1">Онлайн-заказ</p>
+            </div>
+
+            <!-- Блок Гостя -->
+            <div class="bg-white border border-brand-brown/10 p-6 rounded-2xl shadow-sm mb-6">
+              <h2 class="text-md font-bold text-brand-dark mb-4 flex items-center gap-2 border-b border-brand-cream pb-2">
+                <i data-lucide="user" class="w-4 h-4 text-brand-peach"></i> Я — Гость
+              </h2>
+              <form onsubmit="handleGuestLogin(event)">
+                <div class="grid grid-cols-3 gap-2">
+                  <input 
+                    type="number" 
+                    id="tableInput" 
+                    placeholder="Номер стола" 
+                    min="${MIN_TABLE}" 
+                    max="${MAX_TABLE}" 
+                    required
+                    class="col-span-2 px-4 py-3 rounded-xl border border-brand-brown/20 bg-brand-cream/30 focus:outline-none focus:ring-2 focus:ring-brand-peach text-brand-dark font-semibold text-sm"
+                  >
+                  <button type="submit" class="col-span-1 bg-brand-peach hover:bg-brand-brown text-white font-bold text-sm rounded-xl transition duration-200">
+                    Войти
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Блок Admin -->
+            <div class="bg-white border border-brand-brown/10 p-6 rounded-2xl shadow-sm">
+              <h2 class="text-md font-bold text-brand-dark mb-4 flex items-center gap-2 border-b border-brand-cream pb-2">
+                <i data-lucide="shield-check" class="w-4 h-4 text-brand-brown"></i> Панель сотрудника
+              </h2>
+              <form onsubmit="handleAdminLogin(event)">
+                <div class="grid grid-cols-3 gap-2">
+                  <input 
+                    type="password" 
+                    id="passwordInput" 
+                    placeholder="Введите пароль" 
+                    required
+                    class="col-span-2 px-4 py-3 rounded-xl border border-brand-brown/20 bg-brand-cream/30 focus:outline-none focus:ring-2 focus:ring-brand-peach text-brand-dark font-medium text-sm"
+                  >
+                  <button type="submit" class="col-span-1 bg-brand-brown hover:bg-brand-dark text-white font-bold text-sm rounded-xl transition duration-200">
+                    Войти
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div class="text-center text-xs text-brand-brown/60 pt-4 border-t border-brand-brown/10 mt-4">
+            &copy; 2026 БУФЕТ В КЗЦ. Онлайн-заказ по QR-коду со стола.
+          </div>
+        `;
+      }
+
+      // ----------------------------------------------------
+      // СЦЕНАРИЙ 2: ЭКРАН МЕНЮ ДЛЯ ГОСТЯ (GUEST MENU)
+      // ----------------------------------------------------
+      else if (state.screen === 'guest_menu') {
+        container.className = "max-w-md mx-auto bg-brand-cream min-h-screen relative flex flex-col justify-between shadow-2xl";
+        
+        // Поиск активной категории
+        const currentCategory = state.menuData && state.menuData.categories
+          ? (state.menuData.categories.find(c => c.id === state.activeCategoryId) || state.menuData.categories[0])
+          : { title: '', items: [] };
+
+        // Сетка категорий (3 колонки для оптимизации высоты). 
+        // Названия увеличены на 30% (изменен класс text-[10px] -> text-[13px]).
+        // Реализована замена «Безалкогольные напитки» на «Напитки»
+        const categoryTabsHtml = state.menuData && state.menuData.categories ? state.menuData.categories.map(cat => {
+          const isActive = cat.id === state.activeCategoryId;
+          let displayTitle = cat.title;
+          if (displayTitle === 'Безалкогольные напитки') {
+            displayTitle = 'Напитки';
+          }
+          return `
+            <button 
+              onclick="changeCategory('${cat.id}')" 
+              class="w-full h-11 px-1 flex items-center justify-center rounded-xl text-center text-[13px] leading-tight font-extrabold transition-all border ${
+                isActive 
+                  ? 'bg-brand-peach text-white border-brand-peach shadow-sm' 
+                  : 'bg-white text-brand-brown border-brand-brown/10 hover:bg-white/80'
+              }"
+            >
+              ${displayTitle}
+            </button>
+          `;
+        }).join('') : '';
+
+        // Вывод виртуальных подразделов, если они есть у текущей категории.
+        let subcategoriesHtml = '';
+        if (currentCategory.subcategories && currentCategory.subcategories.length > 0) {
+          const subTabs = currentCategory.subcategories.map(sub => {
+            const isSubActive = sub.id === state.activeSubcategoryId;
+            return `
+              <button 
+                onclick="changeSubcategory('${sub.id}')" 
+                class="px-3 py-1.5 rounded-full text-[11px] font-bold border transition ${
+                  isSubActive 
+                    ? 'bg-brand-brown text-white border-brand-brown shadow-sm' 
+                    : 'bg-white/60 text-brand-brown/80 border-brand-brown/10 hover:bg-white'
+                }"
+              >
+                ${sub.title}
+              </button>
+            `;
+          }).join('');
+
+          subcategoriesHtml = `
+            <div class="flex gap-2 py-2 px-1 overflow-x-auto no-scrollbar border-t border-brand-brown/5 bg-brand-cream/40 flex-wrap justify-center">
+              ${subTabs}
+            </div>
+          `;
+        }
+
+        // Фильтрация блюд с учетом остатков и выбранного подраздела
+        let itemsHtml = '';
+        if (currentCategory.items) {
+          let filteredItems = currentCategory.items.filter(item => {
+            const stockId = item.stockLinkId || item.id;
+            const currentStock = state.inventory[stockId] !== undefined ? state.inventory[stockId] : DEFAULT_STOCK;
+            const portionWeight = item.portionWeight !== undefined ? item.portionWeight : 1;
+            return currentStock >= portionWeight && currentStock > 0;
+          });
+
+          if (currentCategory.subcategories && currentCategory.subcategories.length > 0 && state.activeSubcategoryId) {
+            filteredItems = filteredItems.filter(item => item.subcategory === state.activeSubcategoryId);
+          }
+
+          if (filteredItems.length === 0) {
+            itemsHtml = `
+              <div class="text-center py-12 px-4 bg-white rounded-2xl border border-brand-brown/5 shadow-sm">
+                <i data-lucide="sparkles" class="w-8 h-8 text-brand-peach/45 mx-auto mb-2"></i>
+                <p class="text-xs text-brand-brown font-semibold">Позиции отсутствуют</p>
+                <p class="text-[10px] text-brand-brown/60 mt-0.5">Выберите другой подраздел</p>
+              </div>
+            `;
+          } else {
+            itemsHtml = filteredItems.map(item => {
+              const countInCart = state.cart[item.id] || 0;
+              
+              const stockId = item.stockLinkId || item.id;
+              const currentStock = state.inventory[stockId] !== undefined ? state.inventory[stockId] : DEFAULT_STOCK;
+              
+              const portionWeight = item.portionWeight !== undefined ? item.portionWeight : 1;
+              const currentUsageInCart = getStockUsageInCart(stockId);
+
+              const displayName = getItemName(item);
+
+              return `
+                <div class="bg-white py-3 px-4 rounded-2xl shadow-sm border border-brand-brown/5 flex flex-col justify-between transition hover:shadow relative min-h-[105px]">
+                  <div class="w-full">
+                    <h3 class="font-bold text-brand-dark text-sm leading-snug truncate" title="${displayName}">
+                      ${displayName}
+                    </h3>
+                    <p class="text-[11px] text-brand-brown/70 mt-1 line-clamp-2 leading-relaxed">${item.description || ''}</p>
+                  </div>
+                  
+                  <div class="flex items-center justify-between mt-2.5 pt-2 border-t border-brand-brown/5">
+                    <div class="text-sm font-extrabold text-brand-peach">${item.price} ₽</div>
+                    
+                    <div class="flex-shrink-0">
+                      ${countInCart > 0 ? `
+                        <div class="flex items-center bg-brand-cream/60 border border-brand-peach/30 rounded-full px-2 py-0.5 gap-2.5">
+                          <button onclick="removeFromCart('${item.id}')" class="w-5.5 h-5.5 rounded-full bg-white flex items-center justify-center text-brand-peach font-bold hover:bg-brand-peach/10 active:scale-95 transition">-</button>
+                          <span class="font-bold text-xs w-4 text-center text-brand-dark">${countInCart}</span>
+                          <button 
+                            onclick="addToCart('${item.id}')" 
+                            class="w-5.5 h-5.5 rounded-full bg-white flex items-center justify-center text-brand-peach font-bold hover:bg-brand-peach/10 active:scale-95 transition ${currentUsageInCart + portionWeight > currentStock ? 'opacity-40 cursor-not-allowed' : ''}"
+                            ${currentUsageInCart + portionWeight > currentStock ? 'disabled title="Предел наличия порций"' : ''}
+                          >+</button>
                         </div>
-                        <div class="item-price">${item.price} ₽</div>
-                    `;
-                    section.appendChild(itemEl);
-                });
-
-                container.appendChild(section);
-            }
+                      ` : `
+                        <button 
+                          onclick="addToCart('${item.id}')" 
+                          class="bg-brand-peach hover:bg-brand-brown text-white text-[11px] font-black px-4 py-1.5 rounded-full transition active:scale-95 shadow-sm"
+                        >
+                          Заказать
+                        </button>
+                      `}
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('');
+          }
         }
 
-        // Отрисовка панели управления для персонала
-        function renderAdminMenu(items) {
-            const container = document.getElementById('admin-menu-list');
-            container.innerHTML = '';
+        // Нижняя панель корзины
+        const cartCount = getCartCount();
+        const cartTotal = getCartTotal();
+        const bottomCartHtml = cartCount > 0 ? `
+          <div class="sticky bottom-0 left-0 right-0 p-4 bg-white/95 border-t border-brand-brown/10 backdrop-blur-md shadow-lg z-20">
+            <div class="flex justify-between items-center mb-3">
+              <div>
+                <span class="text-xs text-brand-brown font-medium">Выбрано: <strong class="text-brand-dark">${cartCount} поз.</strong></span>
+              </div>
+              <div class="text-right">
+                <span class="text-xs text-brand-brown font-medium">Сумма заказа:</span>
+                <div class="text-lg font-black text-brand-dark">${cartTotal} ₽</div>
+              </div>
+            </div>
+            <div class="flex gap-2">
+              <button onclick="clearCart()" class="px-3 rounded-xl border border-brand-brown/20 hover:bg-red-50 text-red-500 transition" title="Очистить">
+                <i data-lucide="trash-2" class="w-5 h-5"></i>
+              </button>
+              <button onclick="checkOrderBeforeSubmit()" class="flex-1 bg-brand-peach hover:bg-brand-brown text-white font-bold py-3.5 rounded-xl transition shadow-md active:scale-[0.99] flex items-center justify-center gap-2">
+                <i data-lucide="eye" class="w-4 h-4"></i> Отправить заказ
+              </button>
+            </div>
+          </div>
+        ` : '';
 
-            if (items.length === 0) {
-                container.innerHTML = '<p>Меню пустое. Добавьте первую позицию выше.</p>';
-                return;
-            }
+        // Всплывающее интерактивное окно проверки и редактирования заказа перед отправкой
+        let confirmOrderModalHtml = '';
+        if (state.showConfirmOrderModal && cartCount > 0) {
+          const isSubmitting = state.isSubmittingOrder;
 
-            items.forEach(item => {
-                const row = document.createElement('div');
-                row.className = 'admin-item-row';
+          const cartItemsHtml = Object.entries(state.cart).map(([itemId, count]) => {
+            const item = findMenuItem(itemId);
+            if (!item) return '';
+
+            const stockId = item.stockLinkId || item.id;
+            const currentStock = state.inventory[stockId] !== undefined ? state.inventory[stockId] : DEFAULT_STOCK;
+            const portionWeight = item.portionWeight !== undefined ? item.portionWeight : 1;
+            const currentUsageInCart = getStockUsageInCart(stockId);
+
+            const displayName = getItemName(item);
+
+            return `
+              <div class="flex justify-between items-center bg-brand-cream/30 p-3 rounded-xl border border-brand-brown/10">
+                <div class="flex-1 pr-2">
+                  <h4 class="text-xs font-bold text-brand-dark">${displayName}</h4>
+                  <span class="text-[10px] text-brand-brown">${item.price} ₽ / шт.</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button 
+                    onclick="${isSubmitting ? '' : `removeFromCart('${item.id}')`}" 
+                    ${isSubmitting ? 'disabled' : ''} 
+                    class="w-6 h-6 rounded-full bg-white border border-brand-brown/20 flex items-center justify-center text-brand-peach font-extrabold hover:bg-brand-peach/10 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                  >-</button>
+                  <span class="font-bold text-xs text-brand-dark w-4 text-center">${count}</span>
+                  <button 
+                    onclick="${isSubmitting ? '' : `addToCart('${item.id}')`}" 
+                    ${isSubmitting || (currentUsageInCart + portionWeight > currentStock) ? 'disabled' : ''} 
+                    class="w-6 h-6 rounded-full bg-white border border-brand-brown/20 flex items-center justify-center text-brand-peach font-extrabold hover:bg-brand-peach/10 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                  >+</button>
+                </div>
+                <div class="w-16 text-right font-extrabold text-xs text-brand-dark ml-2">
+                  ${item.price * count} ₽
+                </div>
+              </div>
+            `;
+          }).join('');
+
+          confirmOrderModalHtml = `
+            <div class="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-50 flex items-start justify-center p-4 pb-24 overflow-y-auto">
+              <div class="bg-brand-cream border-2 border-brand-brown p-5 rounded-2xl w-full max-w-md shadow-2xl space-y-4 max-h-[72vh] flex flex-col my-4">
+                <div class="flex justify-between items-center border-b border-brand-brown/10 pb-3 flex-shrink-0">
+                  <div class="flex items-center gap-2">
+                    <i data-lucide="shopping-bag" class="text-brand-peach w-5 h-5"></i>
+                    <h3 class="text-md font-bold text-brand-dark uppercase tracking-wide">Ваш заказ (Стол №${state.tableNumber})</h3>
+                  </div>
+                  <button onclick="closeConfirmOrderModal()" ${isSubmitting ? 'disabled' : ''} class="text-brand-brown hover:text-brand-dark disabled:opacity-40">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                  </button>
+                </div>
                 
-                const catLabel = item.category === 'Бар' ? `${item.category} (${item.subcategory})` : item.category;
+                <p class="text-[10px] text-brand-brown font-semibold flex-shrink-0">Проверьте состав заказа. Вы можете отредактировать позиции перед отправкой.</p>
+                
+                <!-- Прокручиваемый список позиций с автоскроллом -->
+                <div class="space-y-2 overflow-y-auto pr-1 flex-1 min-h-0">
+                  ${cartItemsHtml}
+                </div>
 
-                row.innerHTML = `
-                    <div style="flex: 1;">
-                        <small style="color: var(--primary-color); block-size: auto;">${catLabel}</small>
-                        <div>
-                            <input type="text" class="inline-edit-input" value="${item.name}" style="font-weight:bold; width: 45%;" onchange="updateItemField('${item.id}', 'name', this.value)">
-                            <input type="number" class="inline-edit-input" value="${item.price}" style="width: 20%; color: var(--primary-color);" onchange="updateItemField('${item.id}', 'price', Number(this.value))"> ₽
-                        </div>
-                        <div>
-                            <input type="text" class="inline-edit-input" value="${item.description || ''}" placeholder="Добавить описание..." style="width: 80%; font-size:0.85em; color: var(--text-muted);" onchange="updateItemField('${item.id}', 'description', this.value)">
-                        </div>
-                    </div>
-                    <div class="admin-item-actions">
-                        <label class="toggle-switch">
-                            <input type="checkbox" ${item.inStock ? 'checked' : ''} onchange="updateItemField('${item.id}', 'inStock', this.checked)">
-                            <span class="slider"></span>
-                        </label>
-                        <button class="tab-btn btn-danger" style="padding: 5px 10px; border-radius: 4px; border: none;" onclick="deleteItem('${item.id}', '${item.name}')">✕</button>
-                    </div>
-                `;
-                container.appendChild(row);
-            });
+                <div class="space-y-3 pt-3 border-t border-brand-brown/10 flex-shrink-0">
+                  <div class="flex justify-between items-center">
+                    <span class="font-extrabold text-xs text-brand-brown uppercase">Итого к отправке:</span>
+                    <span class="text-lg font-black text-brand-peach">${cartTotal} ₽</span>
+                  </div>
+
+                  <div class="grid grid-cols-3 gap-2">
+                    <button 
+                      onclick="closeConfirmOrderModal()" 
+                      ${isSubmitting ? 'disabled' : ''}
+                      class="col-span-1 bg-white border border-brand-brown/20 text-brand-brown font-bold text-xs py-3 rounded-xl transition hover:bg-white/80 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Назад
+                    </button>
+                    <button 
+                      id="confirmOrderSubmitBtn"
+                      onclick="submitOrder()" 
+                      ${isSubmitting ? 'disabled' : ''}
+                      class="col-span-2 bg-green-600 hover:bg-green-700 text-white disabled:text-gray-200 font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-1.5 shadow-md disabled:cursor-not-allowed"
+                    >
+                      ${isSubmitting 
+                        ? '<i data-lucide="loader" class="w-4 h-4 animate-spin text-white"></i> Отправка...' 
+                        : '<i data-lucide="check" class="w-3.5 h-3.5"></i> Всё верно, заказать'
+                      }
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
         }
 
-        // Действие: Изменение любого поля в Firestore (название, цена, описание, наличие)
-        function updateItemField(id, field, value) {
-            db.collection('menu').doc(id).update({ [field]: value })
-                .catch(err => alert("Ошибка обновления: " + err.message));
+        // Всплывающее окно истории заказов стола
+        let guestHistoryModalHtml = '';
+        if (state.showGuestHistoryModal) {
+          const myOrders = state.orders.filter(o => String(o.table) === String(state.tableNumber));
+          
+          let myOrdersHtml = '';
+          let unpaidSum = 0;
+          let isWaitingForPay = false;
+
+          if (myOrders.length === 0) {
+            myOrdersHtml = `
+              <div class="text-center py-8">
+                <i data-lucide="clock" class="w-10 h-10 text-brand-brown/30 mx-auto mb-2"></i>
+                <p class="text-xs text-brand-brown font-semibold">История заказов пуста.</p>
+              </div>
+            `;
+          } else {
+            myOrdersHtml = myOrders.map(order => {
+              const formattedTime = new Date(order.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+              
+              let statusText = 'Принят';
+              let statusStyle = 'bg-amber-100 text-amber-800 border-amber-200';
+              
+              if (order.status === 'served') {
+                statusText = 'Отдан / Не оплачен';
+                statusStyle = 'bg-brand-peach/20 text-brand-brown border-brand-peach/30';
+                unpaidSum += order.total;
+              } else if (order.status === 'paid') {
+                statusText = 'Оплачен';
+                statusStyle = 'bg-green-100 text-green-800 border-green-200';
+              } else {
+                unpaidSum += order.total; 
+              }
+
+              if (order.waitingForPay) {
+                isWaitingForPay = true;
+              }
+
+              return `
+                <div class="p-4 bg-white border border-brand-brown/10 rounded-2xl space-y-3 text-xs shadow-sm">
+                  <div class="flex justify-between items-center border-b border-brand-brown/10 pb-2">
+                    <span class="text-[10px] text-brand-brown font-black">Заказ ${order.id.replace('ord_comb_', '').substring(0, 6)}</span>
+                    <span class="text-[10px] text-brand-brown/60">${formattedTime}</span>
+                  </div>
+                  
+                  <div class="space-y-1">
+                    ${generateBillItemsMarkup(order.items)}
+                  </div>
+                  
+                  <div class="flex justify-between items-center pt-2">
+                    <span class="px-2 py-0.5 rounded text-[9px] font-black border ${statusStyle}">${statusText}</span>
+                    <span class="font-black text-brand-peach text-sm">${order.total} ₽</span>
+                  </div>
+                </div>
+              `;
+            }).join('');
+          }
+
+          guestHistoryModalHtml = `
+            <div class="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-50 flex items-start justify-center p-4 pb-24 overflow-y-auto">
+              <div class="bg-brand-cream border-2 border-brand-brown p-5 rounded-2xl w-full max-w-sm shadow-2xl relative max-h-[72vh] flex flex-col justify-between my-4 animate-fade-in">
+                <button onclick="toggleGuestHistoryModal(false)" class="absolute top-4 right-4 text-brand-brown hover:text-brand-dark z-10">
+                  <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+                
+                <div class="flex-1 flex flex-col min-h-0">
+                  <div class="text-center pb-3 border-b border-brand-brown/10 mb-2 flex-shrink-0 flex flex-col items-center">
+                    <div class="w-12 h-12 rounded-full bg-brand-peach/15 flex items-center justify-center mb-1 shadow-inner">
+                      <i data-lucide="credit-card" class="w-6 h-6 text-brand-peach"></i>
+                    </div>
+                    <h3 class="text-md font-bold text-brand-dark uppercase">Счет стола</h3>
+                    <p class="text-xs text-brand-brown">Стол №${state.tableNumber}</p>
+                  </div>
+
+                  <!-- Прокручиваемый список истории счетов -->
+                  <div class="space-y-3 overflow-y-auto flex-1 pr-1 no-scrollbar my-2 min-h-0">
+                    ${myOrdersHtml}
+                  </div>
+                </div>
+
+                <div class="pt-3 border-t border-brand-brown/10 mt-2 flex-shrink-0 space-y-3">
+                  <div class="flex justify-between items-center">
+                    <span class="text-xs font-bold text-brand-brown uppercase">Итого неоплачено:</span>
+                    <span class="text-base font-black text-brand-peach">${unpaidSum} ₽</span>
+                  </div>
+                  
+                  ${unpaidSum > 0 ? `
+                    ${isWaitingForPay ? `
+                      <button 
+                        disabled 
+                        class="w-full bg-brand-brown/50 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-not-allowed"
+                      >
+                        <i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Запрос расчета отправлен...
+                      </button>
+                    ` : `
+                      <button 
+                        onclick="requestBillPayment()" 
+                        class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 rounded-xl transition text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95"
+                      >
+                        <i data-lucide="credit-card" class="w-4 h-4"></i> Хочу оплатить
+                      </button>
+                    `}
+                  ` : ''}
+                  
+                  <button 
+                    onclick="toggleGuestHistoryModal(false)" 
+                    class="w-full bg-brand-peach hover:bg-brand-brown text-white font-bold py-2.5 rounded-xl transition text-xs"
+                  >
+                    Вернуться в меню
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
         }
 
-        // Действие: Добавление новой позиции
-        function addNewItem(e) {
-            e.preventDefault();
+        // Текущая категория для хедера (замена «Безалкогольные напитки» на «Напитки»)
+        let headerCategoryTitle = currentCategory.title || '';
+        if (headerCategoryTitle === 'Безалкогольные напитки') {
+          headerCategoryTitle = 'Напитки';
+        }
+
+        container.innerHTML = `
+          <!-- Upper Navbar -->
+          <header class="bg-brand-dark text-brand-cream px-4 py-4 sticky top-0 z-20 flex justify-between items-center shadow-md">
+            <div class="flex items-center gap-2">
+              <div>
+                <h2 class="font-extrabold text-sm uppercase tracking-wide">БУФЕТ В КЗЦ</h2>
+                <p class="text-[10px] text-brand-cream/80 font-bold">Раздел: ${headerCategoryTitle}</p>
+              </div>
+            </div>
             
-            const category = document.getElementById('new-item-category').value;
-            const subcategory = category === 'Бар' ? document.getElementById('new-item-subcategory').value : '';
-            const name = document.getElementById('new-item-name').value.trim();
-            const description = document.getElementById('new-item-desc').value.trim();
-            const price = Number(document.getElementById('new-item-price').value);
+            <!-- Расстояние между кнопками уменьшено в два раза до gap-3 -->
+            <div class="flex items-center gap-3">
+              <!-- Кнопка вызова счета стола гостя: оформлена в персиковом цвете с персиковой обводкой -->
+              <button 
+                onclick="toggleGuestHistoryModal(true)" 
+                class="w-10 h-10 rounded-full bg-brand-peach border border-brand-peach flex items-center justify-center text-white hover:bg-brand-brown hover:border-brand-peach/85 transition relative"
+                title="Счет и история стола"
+              >
+                <i data-lucide="credit-card" class="w-4 h-4"></i>
+                ${state.orders.filter(o => String(o.table) === String(state.tableNumber) && o.status !== 'paid').length > 0 ? `
+                  <span class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-brand-peach rounded-full border border-dark animate-pulse"></span>
+                ` : ''}
+              </button>
 
-            db.collection('menu').add({
-                category: category,
-                subcategory: subcategory,
-                name: name,
-                description: description,
-                price: price,
-                inStock: true,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            })
-            .then(() => {
-                // Очистка формы
-                document.getElementById('new-item-name').value = '';
-                document.getElementById('new-item-desc').value = '';
-                document.getElementById('new-item-price').value = '';
-                alert(`Позиция "${name}" успешно добавлена!`);
-            })
-            .catch(err => alert("Ошибка добавления: " + err.message));
-        }
+              <!-- Индикатор стола с прозрачным фоном bg-transparent -->
+              <div 
+                class="w-10 h-10 rounded-full bg-transparent flex flex-col items-center justify-center border border-brand-peach text-[17px] font-black text-brand-peach"
+                title="Ваш стол"
+              >
+                ${state.tableNumber}
+              </div>
+              
+              <!-- Кнопка выхода оформлена в точно таком же стиле, как и кнопка счета -->
+              <button 
+                onclick="logout()" 
+                class="w-10 h-10 rounded-full bg-brand-peach border border-brand-peach flex items-center justify-center text-white hover:bg-brand-brown hover:border-brand-peach/85 transition" 
+                title="Выйти"
+              >
+                <i data-lucide="log-out" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </header>
 
-        // Действие: Удаление позиции
-        function deleteItem(id, name) {
-            if (confirm(`Вы уверены, что хотите полностью удалить "${name}" из меню?`)) {
-                db.collection('menu').doc(id).delete()
-                    .catch(err => alert("Ошибка удаления: " + err.message));
+          <!-- Плитка категорий меню (оптимизирована под 3 колонки для уменьшения высоты на мобильных) -->
+          <div class="sticky top-[58px] z-10 bg-brand-cream/95 backdrop-blur-md border-b border-brand-brown/10 p-3">
+            <div class="grid grid-cols-3 gap-2">
+              ${categoryTabsHtml}
+            </div>
+            
+            <!-- Рендер подкатегорий, если они есть у текущей категории -->
+            ${subcategoriesHtml}
+          </div>
+
+          <!-- Список блюд -->
+          <main class="flex-1 p-4 space-y-3">
+            ${itemsHtml}
+          </main>
+
+          <!-- Нижняя часть с корзиной -->
+          ${bottomCartHtml}
+
+          <!-- Окно предварительного просмотра перед отправкой -->
+          ${confirmOrderModalHtml}
+
+          <!-- Окно истории заказов стола -->
+          ${guestHistoryModalHtml}
+        `;
+      }
+
+      // ----------------------------------------------------
+      // СЦЕНАРИЙ 3: ПАНЕЛЬ АДМИНИСТРАТОРА (ADMIN PANEL)
+      // ----------------------------------------------------
+      else if (state.screen === 'admin_panel') {
+        container.className = "max-w-md mx-auto bg-brand-cream min-h-screen relative flex flex-col shadow-2xl";
+
+        const newOrders = state.orders.filter(o => o.status === 'new');
+        const servedOrders = state.orders.filter(o => o.status === 'served');
+        const paidOrders = state.orders.filter(o => o.status === 'paid');
+
+        // Группировка active заказов по столам для вкладки "Столы"
+        const groupedByTable = {};
+        servedOrders.forEach(order => {
+          if (!groupedByTable[order.table]) {
+            groupedByTable[order.table] = {
+              table: order.table,
+              orders: [],
+              total: 0,
+              items: {},
+              waitingForPay: false
+            };
+          }
+          groupedByTable[order.table].orders.push(order);
+          groupedByTable[order.table].total += order.total;
+          
+          if (order.waitingForPay) {
+            groupedByTable[order.table].waitingForPay = true;
+          }
+
+          order.items.forEach(item => {
+            if (groupedByTable[order.table].items[item.id]) {
+              groupedByTable[order.table].items[item.id].count += item.count;
+            } else {
+              groupedByTable[order.table].items[item.id] = { ...item };
             }
+          });
+        });
+
+        const hasNewWaiting = newOrders.some(o => o.waitingForPay);
+        const hasServedWaiting = Object.values(groupedByTable).some(t => t.waitingForPay);
+
+        // Таб-бар с фиксацией (sticky), расположен на уровне top-[58px] (сразу под хедером)
+        const tabsHtml = `
+          <div class="flex border-b border-brand-brown/10 bg-white sticky top-[58px] z-20 overflow-x-auto no-scrollbar shadow-sm">
+            <button 
+              onclick="switchAdminTab('new')" 
+              class="flex-1 min-w-[80px] py-3 text-center text-[9px] font-bold tracking-wider uppercase border-b-2 transition flex items-center justify-center gap-1 ${
+                state.adminTab === 'new' 
+                  ? 'border-brand-peach text-brand-peach bg-brand-cream/20' 
+                  : 'border-transparent text-brand-brown/70 hover:text-brand-dark'
+              }"
+            >
+              <span>Новые (${newOrders.length})</span>
+              ${hasNewWaiting ? '<span class="w-2 h-2 bg-red-600 rounded-full animate-pulse"></span>' : ''}
+            </button>
+            <button 
+              onclick="switchAdminTab('served')" 
+              class="flex-1 min-w-[85px] py-3 text-center text-[9px] font-bold tracking-wider uppercase border-b-2 transition flex items-center justify-center gap-1 ${
+                state.adminTab === 'served' 
+                  ? 'border-brand-peach text-brand-peach bg-brand-cream/20' 
+                  : 'border-transparent text-brand-brown/70 hover:text-brand-dark'
+              }"
+            >
+              <span>Столы (${Object.keys(groupedByTable).length})</span>
+              ${hasServedWaiting ? '<span class="w-2 h-2 bg-red-600 rounded-full animate-pulse"></span>' : ''}
+            </button>
+            <button 
+              onclick="switchAdminTab('inventory')" 
+              class="flex-1 min-w-[95px] py-3 text-center text-[9px] font-bold tracking-wider uppercase border-b-2 transition flex items-center justify-center gap-1 ${
+                state.adminTab === 'inventory' 
+                  ? 'border-brand-peach text-brand-peach bg-brand-cream/20' 
+                  : 'border-transparent text-brand-brown/70 hover:text-brand-dark'
+              }"
+            >
+              <i data-lucide="package" class="w-3.5 h-3.5"></i>
+              <span>Остатки</span>
+            </button>
+            <button 
+              onclick="switchAdminTab('archive')" 
+              class="flex-1 min-w-[80px] py-3 text-center text-[9px] font-bold tracking-wider uppercase border-b-2 transition flex items-center justify-center gap-1 ${
+                state.adminTab === 'archive' 
+                  ? 'border-brand-peach text-brand-peach bg-brand-cream/20' 
+                  : 'border-transparent text-brand-brown/70 hover:text-brand-dark'
+              }"
+            >
+              <span>Архив (${paidOrders.length})</span>
+            </button>
+          </div>
+        `;
+
+        let ordersHtml = '';
+
+        // Вкладка "Новые"
+        if (state.adminTab === 'new') {
+          if (newOrders.length === 0) {
+            ordersHtml = `
+              <div class="text-center py-20 px-4">
+                <div class="w-16 h-16 bg-white/50 border border-brand-brown/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <i data-lucide="bell" class="w-8 h-8 text-brand-brown/40"></i>
+                </div>
+                <h3 class="text-sm font-bold text-brand-dark">Новых заказов нет</h3>
+                <p class="text-xs text-brand-brown/80 mt-1">Ожидаем отправки заказов от гостей.</p>
+              </div>
+            `;
+          } else {
+            ordersHtml = newOrders.map(order => {
+              const formattedTime = new Date(order.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+              
+              const itemsListHtml = order.items.map(item => {
+                const originalItem = findMenuItem(item.id);
+                const displayName = originalItem ? getItemName(originalItem) : item.name;
+                return `
+                  <div class="flex justify-between items-center text-xs py-1 border-b border-brand-brown/5">
+                    <span class="text-brand-dark font-medium">${displayName} <span class="text-brand-peach font-bold">x${item.count}</span></span>
+                    <span class="text-brand-brown">${item.price * item.count} ₽</span>
+                  </div>
+                `;
+              }).join('');
+
+              const isWaiting = order.waitingForPay;
+
+              return `
+                <div class="bg-white p-4 rounded-2xl border border-brand-brown/10 shadow-sm space-y-3 ${isWaiting ? 'pulse-danger border-red-500 border-2' : ''}">
+                  <div class="flex justify-between items-start">
+                    <div class="flex items-center gap-1.5">
+                      <span class="bg-brand-dark text-brand-cream text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">Стол №${order.table}</span>
+                      <span class="text-[10px] text-brand-brown/60 ml-2">${formattedTime}</span>
+                    </div>
+                    <div class="text-sm font-bold text-brand-peach">${order.total} ₽</div>
+                  </div>
+
+                  <div class="bg-brand-cream/25 p-2 rounded-xl border border-brand-brown/5">
+                    ${itemsListHtml}
+                  </div>
+
+                  <!-- Статус "просит счет" -->
+                  ${isWaiting ? `
+                    <div class="text-center bg-red-50 text-red-600 text-xs font-extrabold py-2 px-3 rounded-xl border border-red-200 animate-pulse flex items-center justify-center gap-1.5">
+                      <i data-lucide="credit-card" class="w-4 h-4"></i> ГОСТЬ ПРОСИТ СЧЕТ!
+                    </div>
+                  ` : ''}
+
+                  <div class="grid grid-cols-2 gap-2 pt-1">
+                    <button 
+                      onclick="updateOrderStatus('${order.id}', 'served')" 
+                      class="bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1 transition"
+                    >
+                      <i data-lucide="check" class="w-3.5 h-3.5"></i> Отдан гостю
+                    </button>
+                    <button 
+                      onclick="updateOrderStatus('${order.id}', 'paid')" 
+                      class="bg-brand-peach hover:bg-brand-brown text-white text-xs font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1 transition"
+                    >
+                      <i data-lucide="credit-card" class="w-3.5 h-3.5"></i> Оплачено
+                    </button>
+                  </div>
+                </div>
+              `;
+            }).join('');
+          }
         }
 
-        // Запуск подписки при загрузке страницы
-        document.addEventListener('DOMContentLoaded', subscribeToMenu);
-    </script>
+        // Вкладка "На столах"
+        else if (state.adminTab === 'served') {
+          const activeTablesList = Object.values(groupedByTable);
+
+          if (activeTablesList.length === 0) {
+            ordersHtml = `
+              <div class="text-center py-20 px-4">
+                <div class="w-16 h-16 bg-white/50 border border-brand-brown/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <i data-lucide="glass-water" class="w-8 h-8 text-brand-brown/40"></i>
+                </div>
+                <h3 class="text-sm font-bold text-brand-dark">Нет активных столов</h3>
+                <p class="text-xs text-brand-brown/80 mt-1">Здесь будут отображаться столы с неоплаченными заказами.</p>
+              </div>
+            `;
+          } else {
+            const sortedTables = activeTablesList.sort((a, b) => {
+              const aWait = a.waitingForPay ? 1 : 0;
+              const bWait = b.waitingForPay ? 1 : 0;
+              return bWait - aWait;
+            });
+
+            const gridHtml = sortedTables.map(group => {
+              const isWaiting = group.waitingForPay;
+              const cardClasses = isWaiting 
+                ? 'pulse-danger border-red-500 border-2 bg-red-50 text-red-900' 
+                : 'border-brand-peach/30 bg-white hover:border-brand-peach transition-all';
+
+              return `
+                <button 
+                  onclick="selectAdminTable('${group.table}')"
+                  class="aspect-square rounded-2xl border flex flex-col justify-between p-3.5 text-left shadow-sm active:scale-95 transition relative ${cardClasses}"
+                >
+                  <div class="flex justify-between items-start w-full">
+                    <span class="text-xs font-black uppercase tracking-wide bg-brand-cream/60 px-2 py-0.5 rounded-lg text-brand-dark">
+                      № ${group.table}
+                    </span>
+                    ${isWaiting ? `
+                      <span class="flex h-2.5 w-2.5 relative">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-600"></span>
+                      </span>
+                    ` : ''}
+                  </div>
+                  
+                  <div class="w-full mt-auto">
+                    <div class="text-[9px] text-brand-brown/60 font-bold leading-tight">
+                      ${group.orders.length} ${group.orders.length === 1 ? 'заказ' : group.orders.length < 5 ? 'заказа' : 'заказов'}
+                    </div>
+                    <div class="text-xs font-black text-brand-peach mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">
+                      ${group.total} ₽
+                    </div>
+                  </div>
+                </button>
+              `;
+            }).join('');
+
+            ordersHtml = `
+              <div class="space-y-3">
+                <div class="text-[10px] text-brand-brown/60 font-bold uppercase tracking-wider px-1">Выберите стол для детального просмотра:</div>
+                <div class="grid grid-cols-3 gap-3">
+                  ${gridHtml}
+                </div>
+              </div>
+            `;
+          }
+        }
+
+        // Вкладка "Управление остатками"
+        else if (state.adminTab === 'inventory') {
+          let inventoryListHtml = '';
+
+          if (state.menuData && state.menuData.categories) {
+            const processedStockIds = new Set();
+            const stockItemsList = [];
+
+            state.menuData.categories.forEach(category => {
+              category.items.forEach(item => {
+                const stockId = item.stockLinkId || item.id;
+                
+                if (!processedStockIds.has(stockId)) {
+                  processedStockIds.add(stockId);
+
+                  // Ищем текстовое обозначение подкатегории для наглядности
+                  let subcategoryTitle = '';
+                  if (category.subcategories && item.subcategory) {
+                    const sub = category.subcategories.find(s => s.id === item.subcategory);
+                    if (sub) {
+                      subcategoryTitle = sub.title;
+                    }
+                  }
+
+                  stockItemsList.push({
+                    itemId: item.id,
+                    stockId,
+                    rawName: item.name,
+                    categoryTitle: category.title,
+                    subcategoryTitle: subcategoryTitle,
+                    itemReference: item
+                  });
+                }
+              });
+            });
+
+            // Группировка
+            const categoriesWithStocks = {};
+            stockItemsList.forEach(stock => {
+              if (!categoriesWithStocks[stock.categoryTitle]) {
+                categoriesWithStocks[stock.categoryTitle] = [];
+              }
+              categoriesWithStocks[stock.categoryTitle].push(stock);
+            });
+
+            inventoryListHtml = Object.entries(categoriesWithStocks).map(([catTitle, stocks]) => {
+              const itemsRows = stocks.map(stock => {
+                const currentStockPortions = state.inventory[stock.stockId] !== undefined ? state.inventory[stock.stockId] : DEFAULT_STOCK;
+
+                const isOutOfStock = currentStockPortions <= 0;
+                const stopListBtnClass = isOutOfStock
+                  ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100 hover:border-red-300'
+                  : 'bg-white text-brand-dark border-brand-dark/20 hover:bg-brand-cream/20';
+
+                const currentDisplayName = getItemName(stock.itemReference);
+
+                return `
+                  <div class="p-3 bg-brand-cream/10 rounded-xl border border-brand-brown/5 flex flex-col gap-2.5">
+                    <!-- Заголовок товара (статический текст) -->
+                    <div class="w-full">
+                      <div class="p-1">
+                        <h4 class="text-xs font-black text-brand-dark leading-tight">${currentDisplayName}</h4>
+                        ${stock.subcategoryTitle ? `
+                          <span class="text-[9px] bg-brand-peach/10 text-brand-peach px-1.5 py-0.2 rounded font-semibold mt-0.5 inline-block">
+                            ${stock.subcategoryTitle}
+                          </span>
+                        ` : ''}
+                      </div>
+                    </div>
+                    
+                    <!-- Управление остатками -->
+                    <div class="flex items-center gap-1.5 w-full pt-1 border-t border-brand-brown/5">
+                      <div class="flex items-center bg-white border border-brand-brown/20 rounded-lg px-2 py-1 gap-1 shadow-sm flex-1 justify-center">
+                        <span class="text-[10px] text-brand-brown/60 font-semibold">Остаток:</span>
+                        <input 
+                          type="text" 
+                          pattern="[0-9]*"
+                          inputmode="numeric"
+                          maxlength="3"
+                          value="${currentStockPortions}"
+                          onblur="handleManualStockInput('${stock.stockId}', this.value)"
+                          onkeydown="if(event.key === 'Enter') { handleManualStockInput('${stock.stockId}', this.value); this.blur(); }"
+                          class="w-10 h-6 text-center rounded bg-brand-cream/30 border border-brand-brown/10 focus:ring-1 focus:ring-brand-peach focus:outline-none text-xs font-black text-brand-dark"
+                          title="Введите число порций на складе"
+                        >
+                        <span class="text-[9px] text-brand-dark font-black">порц.</span>
+                      </div>
+
+                      <button 
+                        onclick="setStockZero('${stock.stockId}')" 
+                        class="${stopListBtnClass} px-2.5 h-8 rounded-lg text-[10px] font-bold border flex items-center justify-center gap-1 flex-1"
+                        title="Добавить всю позицию в стоп-лист (0 порций)"
+                      >
+                        <i data-lucide="slash" class="w-3 h-3"></i> Стоп-лист
+                      </button>
+                    </div>
+                  </div>
+                `;
+              }).join('');
+
+              // Замена заголовка категории в складе, если она «Безалкогольные напитки»
+              let displayCatTitle = catTitle;
+              if (displayCatTitle === 'Безалкогольные напитки') {
+                displayCatTitle = 'Напитки';
+              }
+
+              return `
+                <div class="bg-white p-4 rounded-2xl border border-brand-brown/10 shadow-sm space-y-3 animate-fade-in">
+                  <h3 class="text-xs font-black text-brand-brown uppercase tracking-wider border-b border-brand-cream pb-1.5 flex items-center gap-1.5">
+                    <i data-lucide="tag" class="w-3.5 h-3.5 text-brand-peach"></i>
+                    ${displayCatTitle}
+                  </h3>
+                  <div class="space-y-2.5">
+                    ${itemsRows}
+                  </div>
+                </div>
+              `;
+            }).join('');
+          }
+
+          ordersHtml = `
+            <div class="space-y-4">
+              ${inventoryListHtml}
+            </div>
+          `;
+        }
+
+        // Вкладка "Архив"
+        else if (state.adminTab === 'archive') {
+          if (paidOrders.length === 0) {
+            ordersHtml = `
+              <div class="text-center py-20 px-4">
+                <div class="w-16 h-16 bg-white/50 border border-brand-brown/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <i data-lucide="archive" class="w-8 h-8 text-brand-brown/40"></i>
+                </div>
+                <h3 class="text-sm font-bold text-brand-dark">Архив пуст</h3>
+                <p class="text-xs text-brand-brown/80 mt-1">Оплаченные счета будут архивироваться здесь.</p>
+              </div>
+            `;
+          } else {
+            ordersHtml = paidOrders.map(order => {
+              const formattedTime = new Date(order.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+
+              return `
+                <div class="bg-white p-5 rounded-2xl border border-brand-brown/10 shadow-sm space-y-4">
+                  <div class="flex justify-between items-start border-b border-brand-brown/15 pb-2">
+                    <div>
+                      <span class="bg-brand-brown text-brand-cream text-[10px] font-bold px-2.5 py-1 rounded-full uppercase">Стол №${order.table}</span>
+                      <span class="text-[10px] text-brand-brown/50 ml-2">${formattedTime}</span>
+                    </div>
+                    <div class="font-bold text-xs text-green-600 flex items-center gap-1 bg-green-50 px-2 py-0.5 rounded border border-green-100">
+                      <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i> Оплачено
+                    </div>
+                  </div>
+                  
+                  <div class="space-y-1">
+                    ${generateBillItemsMarkup(order.items)}
+                  </div>
+                  
+                  <div class="flex justify-between items-center text-xs pt-3 border-t border-brand-brown/10">
+                    <span class="text-[9px] text-brand-brown/50 font-medium">ID: ${order.id.replace('ord_comb_', '').substring(0, 8)}</span>
+                    <span class="font-black text-brand-dark text-base">Итого: ${order.total} ₽</span>
+                  </div>
+                  
+                  <div class="flex gap-2 pt-1.5 justify-end">
+                    <button 
+                      onclick="openBill('${order.id}')" 
+                      class="text-brand-peach hover:text-brand-brown text-xs flex items-center gap-1 py-1 px-2 hover:bg-brand-cream rounded font-bold"
+                    >
+                      <i data-lucide="ruble" class="w-3.5 h-3.5"></i> Посмотреть чек
+                    </button>
+                    <button 
+                      onclick="deleteOrder('${order.id}')" 
+                      class="text-red-400 hover:text-red-600 text-xs flex items-center gap-1 py-1 px-2 hover:bg-red-50 rounded"
+                    >
+                      <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Удалить
+                    </button>
+                  </div>
+                </div>
+              `;
+            }).join('');
+          }
+        }
+
+        // Модальное окно административного чека
+        const billModalHtml = state.selectedBillOrder ? `
+          <div class="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-50 flex items-start justify-center p-4 pb-24 overflow-y-auto">
+            <div class="bg-brand-cream border-2 border-brand-brown p-5 rounded-3xl w-full max-w-sm shadow-2xl relative max-h-[80vh] flex flex-col justify-between my-4 animate-fade-in">
+              <button onclick="closeBillModal()" class="absolute top-4 right-4 text-brand-brown hover:text-brand-dark z-20">
+                <i data-lucide="x" class="w-5 h-5"></i>
+              </button>
+              
+              <div class="text-center pb-3 border-b border-brand-brown/15 flex-shrink-0">
+                <span class="bg-brand-peach text-white text-xs font-black px-4 py-1 rounded-full uppercase">Счет на оплату</span>
+                <p class="text-xs font-bold text-brand-brown mt-2.5">Стол №${state.selectedBillOrder.table}</p>
+              </div>
+
+              <div class="overflow-y-auto flex-1 my-3 pr-1">
+                <div class="text-[10px] text-brand-brown/60 font-bold uppercase tracking-wider mb-2">Общий заказ стола:</div>
+                <div class="space-y-1">
+                  ${generateBillItemsMarkup(state.selectedBillOrder.items)}
+                </div>
+              </div>
+
+              <div class="pt-3 border-t border-brand-brown/15 flex-shrink-0 space-y-4">
+                <div class="flex justify-between items-center">
+                  <span class="text-xs font-bold text-brand-brown uppercase">Итого к оплате:</span>
+                  <span class="text-lg font-black text-brand-peach">${state.selectedBillOrder.total} ₽</span>
+                </div>
+
+                <div class="flex-shrink-0">
+                  <button 
+                    onclick="closeBillModal()" 
+                    class="w-full bg-brand-peach hover:bg-brand-brown text-white font-bold py-3 rounded-xl transition text-xs uppercase tracking-wider"
+                  >
+                    Закрыть
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ` : '';
+
+        // Детальное модальное окно для стола по тапу на плашку
+        let tableDetailModalHtml = '';
+        if (state.selectedAdminTable && groupedByTable[state.selectedAdminTable]) {
+          const group = groupedByTable[state.selectedAdminTable];
+          const isWaiting = group.waitingForPay;
+
+          const orderTimestampsHtml = group.orders.map(o => {
+            const time = new Date(o.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+            return `<span class="bg-brand-cream text-brand-brown text-[10px] px-2 py-0.5 rounded font-bold">${time} (${o.total} ₽)</span>`;
+          }).join(' ');
+
+          tableDetailModalHtml = `
+            <div class="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-50 flex items-start justify-center p-4 pb-24 overflow-y-auto">
+              <div class="bg-brand-cream border-2 border-brand-brown p-5 rounded-3xl w-full max-w-sm shadow-2xl relative max-h-[80vh] flex flex-col justify-between my-4 animate-fade-in">
+                <button onclick="closeAdminTableModal()" class="absolute top-4 right-4 text-brand-brown hover:text-brand-dark z-20">
+                  <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+                
+                <div class="flex-1 flex flex-col min-h-0">
+                  <div class="text-center pb-3 border-b border-brand-brown/15 flex-shrink-0">
+                    <span class="bg-brand-peach text-white text-xs font-black px-4 py-1 rounded-full uppercase">СТОЛ №${group.table}</span>
+                    <div class="flex flex-wrap justify-center gap-1.5 mt-2.5">
+                      ${orderTimestampsHtml}
+                    </div>
+                  </div>
+
+                  <div class="overflow-y-auto flex-1 my-3 pr-1">
+                    <div class="text-[10px] text-brand-brown/60 font-bold uppercase tracking-wider mb-2">Общий заказ стола:</div>
+                    <div class="space-y-1">
+                      ${generateBillItemsMarkup(Object.values(group.items))}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="pt-3 border-t border-brand-brown/15 flex-shrink-0 space-y-3">
+                  <div class="flex justify-between items-center">
+                    <span class="text-xs font-bold text-brand-brown uppercase">Итого к оплате стола:</span>
+                    <span class="text-lg font-black text-brand-peach">${group.total} ₽</span>
+                  </div>
+
+                  ${isWaiting ? `
+                    <div class="text-center bg-red-50 text-red-600 text-xs font-extrabold py-2.5 px-3 rounded-xl border border-red-200 animate-pulse flex items-center justify-center gap-1.5">
+                      <i data-lucide="credit-card" class="w-4 h-4 animate-bounce"></i> ГОСТЬ СТОЛА ПРОСИТ РАСЧЕТ!
+                    </div>
+                  ` : ''}
+
+                  <div class="space-y-2">
+                    <button 
+                      onclick="payAllOrdersForTable(${group.table})" 
+                      class="w-full bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-3 rounded-xl flex items-center justify-center gap-1.5 transition shadow-md active:scale-95"
+                    >
+                      <i data-lucide="banknote" class="w-4 h-4"></i> Оплатить и закрыть стол
+                    </button>
+                    <button 
+                      onclick="closeAdminTableModal()" 
+                      class="w-full bg-white border border-brand-brown/20 text-brand-brown font-bold text-xs py-2.5 rounded-xl hover:bg-white/50 transition"
+                    >
+                      Назад к сетке столов
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+
+        container.innerHTML = `
+          <!-- Шапка админки -->
+          <header class="bg-brand-dark text-brand-cream px-4 py-4 sticky top-0 z-20 flex justify-between items-center shadow-md">
+            <div class="flex items-center gap-2">
+              <i data-lucide="terminal" class="w-5 h-5 text-brand-peach"></i>
+              <div>
+                <h2 class="font-extrabold text-sm uppercase tracking-wide">БУФЕТ В КЗЦ</h2>
+                <p class="text-[10px] text-brand-cream/80">Официант / Администратор</p>
+              </div>
+            </div>
+            <button onclick="logout()" class="bg-brand-brown hover:bg-brand-peach text-white text-xs font-bold px-3 py-1.5 rounded-xl transition flex items-center gap-1">
+              <i data-lucide="log-out" class="w-3.5 h-3.5"></i> Выйти
+            </button>
+          </header>
+
+          <!-- Табы Новые / Столы / Остатки / Архив -->
+          ${tabsHtml}
+
+          <!-- Основной контент (Список заказов или... -->
+          <main class="flex-1 p-4 space-y-4 overflow-y-auto">
+            ${ordersHtml}
+          </main>
+
+          <!-- Модальное окно чека архива -->
+          ${billModalHtml}
+
+          <!-- Детальное окно просмотра стола по тапу -->
+          ${tableDetailModalHtml}
+        `;
+      }
+
+      lucide.createIcons();
+    }
+
+    window.onload = function() {
+      initApp();
+    };
+  </script>
 </body>
 </html>
