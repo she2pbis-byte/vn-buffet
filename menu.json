@@ -22,11 +22,11 @@
           "id": "alc_100",
           "name": "Балаклава Брют, БОКАЛ",
           "price": 450,
-          "description": "Крым, белое брют, 125 мл",
           "available": true,
-          "stockLinkId": "stock_balaklava_brut",
+          "description": "Крым, белое брют, 125 мл",
+          "subcategory": "sparkling",
           "portionWeight": 1,
-          "subcategory": "sparkling"
+          "stockLinkId": "stock_balaklava_brut"
         },
         {
           "id": "alc_101",
