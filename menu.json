@@ -267,6 +267,16 @@
           "stockLinkId": "stock_klyukovka",
           "portionWeight": 10,
           "subcategory": "strong"
+        },
+        {
+          "id": "alc_507",
+          "name": "Балантайнс, БОКАЛ",
+          "price": 500,
+          "available": true,
+          "description": "Виски, 50 мл.",
+          "subcategory": "strong",
+          "portionWeight": 1,
+          "stockLinkId": "stock_balantains"
         }
       ]
     },
