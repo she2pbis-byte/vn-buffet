@@ -128,7 +128,7 @@
       user: null, // Авторизованный в Firebase пользователь
       isSubmittingOrder: false, // Флаг процесса отправки заказа в базу данных
       
-      // Новые свойства состояния безопасности и модальных окон подтверждения
+      // Свойства состояния безопасности и модальных окон подтверждения
       securityModal: null, // null или { targetTab: 'inventory' | 'archive' }
       securityPassword: '',
       securityError: false,
@@ -182,6 +182,7 @@
     window.closeConfirmModal = closeConfirmModal;
     window.triggerConfirmAction = triggerConfirmAction;
     window.requestDeleteAllArchive = requestDeleteAllArchive;
+    window.updateSecurityPasswordVal = updateSecurityPasswordVal;
 
     // --- Вспомогательная функция уведомлений в UI ---
     function showNotification(message, type = 'info') {
@@ -456,9 +457,19 @@
       }
     }
 
+    // Обновление значения пин-кода в памяти без принудительного полного перерендара (чтобы не терялся фокус ввода)
+    function updateSecurityPasswordVal(val) {
+      state.securityPassword = val;
+      // Если введено 4 цифры, автоматически запускаем отправку
+      if (val.length === 4) {
+        handleSecuritySubmit();
+      }
+    }
+
     // Обработка отправки пароля для входа в защищенные разделы
     function handleSecuritySubmit(event) {
-      event.preventDefault();
+      if (event) event.preventDefault();
+      
       if (state.securityPassword === SECURITY_PASSWORD_RESTRICTED) {
         const target = state.securityModal.targetTab;
         state.adminTab = target;
@@ -473,7 +484,10 @@
         render();
         setTimeout(() => {
           const input = document.getElementById('securityPasswordInput');
-          if (input) input.focus();
+          if (input) {
+            input.value = '';
+            input.focus();
+          }
         }, 100);
       }
     }
@@ -1281,7 +1295,7 @@
                 
                 <p class="text-[10px] text-brand-brown font-semibold flex-shrink-0">Проверьте состав заказа. Вы можете отредактировать позиции перед отправкой.</p>
                 
-                <!-- Прокручиваемый список позиций с автоскроллом -->
+                <!-- Прокручиваемый список позиций -->
                 <div class="space-y-2 overflow-y-auto pr-1 flex-1 min-h-0">
                   ${cartItemsHtml}
                 </div>
@@ -1914,7 +1928,6 @@
               `;
             }).join('');
 
-            // Добавляем кнопку "Удалить все" в конце списка на вкладке архив
             ordersHtml = `
               <div class="space-y-4">
                 ${listHtml}
@@ -2053,6 +2066,7 @@
                 </div>
 
                 <form onsubmit="handleSecuritySubmit(event)" class="space-y-4">
+                  <!-- Контролируем ввод через oninput с прямым вызовом функции без сброса DOM-фокуса -->
                   <input 
                     type="password" 
                     id="securityPasswordInput" 
@@ -2062,8 +2076,8 @@
                     inputmode="numeric"
                     pattern="[0-9]*"
                     value="${state.securityPassword}"
-                    oninput="state.securityPassword = this.value; if(this.value.length === 4) { document.getElementById('securityFormBtn').click(); }"
-                    class="w-32 mx-auto text-center px-4 py-2.5 rounded-xl border ${state.securityError ? 'border-red-500 ring-2 ring-red-200' : 'border-brand-brown/20'} bg-white text-xl font-bold tracking-widest text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-peach"
+                    oninput="updateSecurityPasswordVal(this.value)"
+                    class="w-32 mx-auto text-center px-4 py-2.5 rounded-xl border ${state.securityError ? 'border-red-500 ring-2 ring-red-200 animate-shake' : 'border-brand-brown/20'} bg-white text-xl font-bold tracking-widest text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-peach"
                   >
                   
                   ${state.securityError ? `
