@@ -127,10 +127,18 @@
       showGuestHistoryModal: false, // Модальное окно истории заказов гостя
       user: null, // Авторизованный в Firebase пользователь
       isSubmittingOrder: false, // Флаг процесса отправки заказа в базу данных
+      
+      // Новые свойства состояния безопасности и модальных окон подтверждения
+      securityModal: null, // null или { targetTab: 'inventory' | 'archive' }
+      securityPassword: '',
+      securityError: false,
+      
+      confirmModal: null, // null или { title: '...', text: '...', onConfirm: Function }
     };
 
     // --- Системные константы ---
     const ADMIN_PASSWORD = "56165616";
+    const SECURITY_PASSWORD_RESTRICTED = "0000"; // Пароль для доступа к Остаткам и Архиву
     const MIN_TABLE = 1;
     const MAX_TABLE = 50; 
     const DEFAULT_STOCK = 30; // По умолчанию даем 30 порций на склад при инициализации новой позиции
@@ -167,6 +175,13 @@
     // Глобальные функции для управления остатками (Inventory)
     window.setStockZero = setStockZero;
     window.handleManualStockInput = handleManualStockInput;
+
+    // Глобальные функции защиты и подтверждений
+    window.handleSecuritySubmit = handleSecuritySubmit;
+    window.closeSecurityModal = closeSecurityModal;
+    window.closeConfirmModal = closeConfirmModal;
+    window.triggerConfirmAction = triggerConfirmAction;
+    window.requestDeleteAllArchive = requestDeleteAllArchive;
 
     // --- Вспомогательная функция уведомлений в UI ---
     function showNotification(message, type = 'info') {
@@ -422,11 +437,65 @@
       render();
     }
 
-    // Изменение вкладок панели администратора
+    // Изменение вкладок панели администратора с защитой паролем для "inventory" и "archive"
     function switchAdminTab(tabName) {
-      state.adminTab = tabName;
-      state.selectedAdminTable = null;
+      if (tabName === 'inventory' || tabName === 'archive') {
+        state.securityModal = { targetTab: tabName };
+        state.securityPassword = '';
+        state.securityError = false;
+        render();
+        // Устанавливаем фокус на поле ввода пароля защиты
+        setTimeout(() => {
+          const input = document.getElementById('securityPasswordInput');
+          if (input) input.focus();
+        }, 100);
+      } else {
+        state.adminTab = tabName;
+        state.selectedAdminTable = null;
+        render();
+      }
+    }
+
+    // Обработка отправки пароля для входа в защищенные разделы
+    function handleSecuritySubmit(event) {
+      event.preventDefault();
+      if (state.securityPassword === SECURITY_PASSWORD_RESTRICTED) {
+        const target = state.securityModal.targetTab;
+        state.adminTab = target;
+        state.securityModal = null;
+        state.securityError = false;
+        state.selectedAdminTable = null;
+        showNotification('Доступ разрешен', 'success');
+        render();
+      } else {
+        state.securityError = true;
+        state.securityPassword = '';
+        render();
+        setTimeout(() => {
+          const input = document.getElementById('securityPasswordInput');
+          if (input) input.focus();
+        }, 100);
+      }
+    }
+
+    function closeSecurityModal() {
+      state.securityModal = null;
+      state.securityError = false;
       render();
+    }
+
+    // Закрытие модального окна подтверждения
+    function closeConfirmModal() {
+      state.confirmModal = null;
+      render();
+    }
+
+    // Подтверждение выполнения запланированного действия
+    function triggerConfirmAction() {
+      if (state.confirmModal && typeof state.confirmModal.onConfirm === 'function') {
+        state.confirmModal.onConfirm();
+      }
+      closeConfirmModal();
     }
 
     // Выбор стола в админке
@@ -488,7 +557,6 @@
     }
 
     // Вспомогательная функция для генерации одинаковой верстки списка позиций во всех счетах
-    // Расстояние (gap) между количеством (хКол-во) и ценой уменьшено вдвое (с gap-4 на gap-2, а фиксированная ширина уменьшена с w-16 на w-12)
     function generateBillItemsMarkup(items) {
       return items.map(item => {
         const originalItem = findMenuItem(item.id);
@@ -699,25 +767,45 @@
       }
     }
 
-    // Обновление статуса заказа в Firestore
+    // Обновление статуса заказа в Firestore (С защитой подтверждением для "paid")
     async function updateOrderStatus(orderId, newStatus) {
       if (!state.user) return;
-      try {
-        const orderDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId);
-        await updateDoc(orderDocRef, { status: newStatus });
-        
-        let message = 'Статус обновлен';
-        if (newStatus === 'served') message = 'Заказ успешно отмечен как отданный!';
-        if (newStatus === 'paid') message = 'Заказ успешно оплачен!';
-        showNotification(message, 'success');
-      } catch (error) {
-        console.error("Ошибка обновления статуса:", error);
-        showNotification("Ошибка сети при обновлении статуса", "error");
+
+      if (newStatus === 'paid') {
+        const order = state.orders.find(o => o.id === orderId);
+        const orderNum = order ? order.id.substring(0, 8) : '';
+        const tableNum = order ? order.table : '';
+
+        state.confirmModal = {
+          title: 'Оплатить заказ?',
+          text: `Вы действительно хотите отметить заказ №${orderNum} (Стол №${tableNum}) как ОПЛАЧЕННЫЙ? Это действие нельзя отменить.`,
+          onConfirm: async () => {
+            try {
+              const orderDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId);
+              await updateDoc(orderDocRef, { status: 'paid' });
+              showNotification('Заказ успешно оплачен!', 'success');
+            } catch (error) {
+              console.error("Ошибка обновления статуса:", error);
+              showNotification("Ошибка сети при обновлении статуса", "error");
+            }
+          }
+        };
+        render();
+      } else {
+        // Для перехода в "отдан" (served) оставляем прямое действие для скорости работы
+        try {
+          const orderDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId);
+          await updateDoc(orderDocRef, { status: newStatus });
+          showNotification('Заказ успешно отмечен как отданный!', 'success');
+        } catch (error) {
+          console.error("Ошибка обновления статуса:", error);
+          showNotification("Ошибка сети при обновлении статуса", "error");
+        }
       }
     }
 
-    // Оплата всех заказов стола разом с физическим объединением
-    async function payAllOrdersForTable(tableNum) {
+    // Оплата всех заказов стола разом с физическим объединением (С подтверждением)
+    function payAllOrdersForTable(tableNum) {
       if (!state.user) return;
 
       const activeTableOrders = state.orders.filter(
@@ -725,56 +813,111 @@
       );
       if (activeTableOrders.length === 0) return;
 
-      const combinedItemsMap = {};
-      let totalAmount = 0;
+      let totalAmount = activeTableOrders.reduce((acc, o) => acc + o.total, 0);
 
-      activeTableOrders.forEach(order => {
-        order.items.forEach(item => {
-          if (combinedItemsMap[item.id]) {
-            combinedItemsMap[item.id].count += item.count;
-          } else {
-            combinedItemsMap[item.id] = { ...item };
+      state.confirmModal = {
+        title: 'Оплатить весь стол?',
+        text: `Вы действительно хотите принять оплату и закрыть стол №${tableNum}? Все активные заказы стола будут объединены в один чек на сумму ${totalAmount} ₽.`,
+        onConfirm: async () => {
+          const combinedItemsMap = {};
+          let totalAmountCombined = 0;
+
+          activeTableOrders.forEach(order => {
+            order.items.forEach(item => {
+              if (combinedItemsMap[item.id]) {
+                combinedItemsMap[item.id].count += item.count;
+              } else {
+                combinedItemsMap[item.id] = { ...item };
+              }
+            });
+            totalAmountCombined += order.total;
+          });
+
+          const combinedOrderId = 'ord_comb_' + Date.now();
+          const combinedPaidOrder = {
+            table: String(tableNum),
+            items: Object.values(combinedItemsMap),
+            status: 'paid',
+            timestamp: new Date().toISOString(),
+            total: totalAmountCombined
+          };
+
+          try {
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'orders', combinedOrderId), combinedPaidOrder);
+
+            for (const order of activeTableOrders) {
+              await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'orders', order.id));
+            }
+
+            state.selectedAdminTable = null;
+            showNotification(`Все заказы стола №${tableNum} успешно объединены и оплачены!`, 'success');
+          } catch (error) {
+            console.error("Ошибка при оплате стола:", error);
+            showNotification("Ошибка сети при проведении оплаты", "error");
           }
-        });
-        totalAmount += order.total;
-      });
-
-      const combinedOrderId = 'ord_comb_' + Date.now();
-      const combinedPaidOrder = {
-        table: String(tableNum),
-        items: Object.values(combinedItemsMap),
-        status: 'paid',
-        timestamp: new Date().toISOString(),
-        total: totalAmount
-      };
-
-      try {
-        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'orders', combinedOrderId), combinedPaidOrder);
-
-        for (const order of activeTableOrders) {
-          await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'orders', order.id));
         }
-
-        state.selectedAdminTable = null;
-        showNotification(`Все заказы стола №${tableNum} успешно объединены и оплачены!`, 'success');
-      } catch (error) {
-        console.error("Ошибка при оплате стола:", error);
-        showNotification("Ошибка сети при проведении оплаты", "error");
-      }
+      };
+      render();
     }
 
-    // Полное удаление заказа из базы данных Firestore
-    async function deleteOrder(orderId) {
+    // Полное удаление заказа из базы данных Firestore с подтверждением
+    function deleteOrder(orderId) {
       if (!state.user) return;
-      if (confirm('Вы уверены, что хотите окончательно удалить этот заказ из базы?')) {
-        try {
-          await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId));
-          showNotification('Заказ удален', 'info');
-        } catch (error) {
-          console.error("Ошибка удаления:", error);
-          showNotification("Не удалось удалить заказ", "error");
+      
+      const order = state.orders.find(o => o.id === orderId);
+      const orderNum = order ? order.id.replace('ord_comb_', '').substring(0, 8) : '';
+      
+      state.confirmModal = {
+        title: 'Удалить заказ навсегда?',
+        text: `Вы действительно хотите ОКОНЧАТЕЛЬНО удалить заказ №${orderNum} из базы данных? Это действие сотрет запись из архива безвозвратно.`,
+        onConfirm: async () => {
+          try {
+            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId));
+            showNotification('Заказ удален', 'info');
+          } catch (error) {
+            console.error("Ошибка удаления:", error);
+            showNotification("Не удалось удалить заказ", "error");
+          }
         }
+      };
+      render();
+    }
+
+    // Удаление всего архива (с двухэтапным подтверждением для безопасности)
+    function requestDeleteAllArchive() {
+      const paidOrders = state.orders.filter(o => o.status === 'paid');
+      if (paidOrders.length === 0) {
+        showNotification('Архив уже пуст!', 'info');
+        return;
       }
+
+      state.confirmModal = {
+        title: 'УНИЧТОЖИТЬ ВЕСЬ АРХИВ?',
+        text: `Вы собираетесь полностью ОЧИСТИТЬ АРХИВ (удалить все оплаченные заказы: ${paidOrders.length} шт.). Все финансовые данные будут потеряны безвозвратно! Продолжить?`,
+        onConfirm: () => {
+          // Второе подтверждение для исключения случайных кликов на мобильных
+          setTimeout(() => {
+            state.confirmModal = {
+              title: 'ВЫ УВЕРЕНЫ НА 100%?',
+              text: 'Это последнее предупреждение. Восстановить историю платежей будет невозможно. Удалить всё?',
+              onConfirm: async () => {
+                showNotification('Очистка архива запущена...', 'info');
+                try {
+                  for (const order of paidOrders) {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'orders', order.id));
+                  }
+                  showNotification('Архив успешно очищен!', 'success');
+                } catch (error) {
+                  console.error("Ошибка при очистке архива:", error);
+                  showNotification("Ошибка сети во время удаления данных", "error");
+                }
+              }
+            };
+            render();
+          }, 400);
+        }
+      };
+      render();
     }
 
     // Открытие чека
@@ -936,9 +1079,7 @@
           ? (state.menuData.categories.find(c => c.id === state.activeCategoryId) || state.menuData.categories[0])
           : { title: '', items: [] };
 
-        // Сетка категорий (3 колонки для оптимизации высоты). 
-        // Названия увеличены на 30% (изменен класс text-[10px] -> text-[13px]).
-        // Реализована замена «Безалкогольные напитки» на «Напитки»
+        // Сетка категорий (3 колонки). Названия увеличены до text-[13px].
         const categoryTabsHtml = state.menuData && state.menuData.categories ? state.menuData.categories.map(cat => {
           const isActive = cat.id === state.activeCategoryId;
           let displayTitle = cat.title;
@@ -959,7 +1100,7 @@
           `;
         }).join('') : '';
 
-        // Вывод виртуальных подразделов, если они есть у текущей категории.
+        // Вывод виртуальных подразделов, если они есть.
         let subcategoriesHtml = '';
         if (currentCategory.subcategories && currentCategory.subcategories.length > 0) {
           const subTabs = currentCategory.subcategories.map(sub => {
@@ -1293,7 +1434,7 @@
           `;
         }
 
-        // Текущая категория для хедера (замена «Безалкогольные напитки» на «Напитки»)
+        // Текущая категория для хедера
         let headerCategoryTitle = currentCategory.title || '';
         if (headerCategoryTitle === 'Безалкогольные напитки') {
           headerCategoryTitle = 'Напитки';
@@ -1309,9 +1450,8 @@
               </div>
             </div>
             
-            <!-- Расстояние между кнопками уменьшено в два раза до gap-3 -->
             <div class="flex items-center gap-3">
-              <!-- Кнопка вызова счета стола гостя: оформлена в персиковом цвете с персиковой обводкой -->
+              <!-- Кнопка вызова счета стола гостя -->
               <button 
                 onclick="toggleGuestHistoryModal(true)" 
                 class="w-10 h-10 rounded-full bg-brand-peach border border-brand-peach flex items-center justify-center text-white hover:bg-brand-brown hover:border-brand-peach/85 transition relative"
@@ -1323,7 +1463,7 @@
                 ` : ''}
               </button>
 
-              <!-- Индикатор стола с прозрачным фоном bg-transparent -->
+              <!-- Индикатор стола -->
               <div 
                 class="w-10 h-10 rounded-full bg-transparent flex flex-col items-center justify-center border border-brand-peach text-[17px] font-black text-brand-peach"
                 title="Ваш стол"
@@ -1331,7 +1471,7 @@
                 ${state.tableNumber}
               </div>
               
-              <!-- Кнопка выхода оформлена в точно таком же стиле, как и кнопка счета -->
+              <!-- Кнопка выхода -->
               <button 
                 onclick="logout()" 
                 class="w-10 h-10 rounded-full bg-brand-peach border border-brand-peach flex items-center justify-center text-white hover:bg-brand-brown hover:border-brand-peach/85 transition" 
@@ -1342,13 +1482,13 @@
             </div>
           </header>
 
-          <!-- Плитка категорий меню (оптимизирована под 3 колонки для уменьшения высоты на мобильных) -->
+          <!-- Плитка категорий меню -->
           <div class="sticky top-[58px] z-10 bg-brand-cream/95 backdrop-blur-md border-b border-brand-brown/10 p-3">
             <div class="grid grid-cols-3 gap-2">
               ${categoryTabsHtml}
             </div>
             
-            <!-- Рендер подкатегорий, если они есть у текущей категории -->
+            <!-- Рендер подкатегорий -->
             ${subcategoriesHtml}
           </div>
 
@@ -1360,7 +1500,7 @@
           <!-- Нижняя часть с корзиной -->
           ${bottomCartHtml}
 
-          <!-- Окно предварительного просмотра перед отправкой -->
+          <!-- Окно предварительного просмотра -->
           ${confirmOrderModalHtml}
 
           <!-- Окно истории заказов стола -->
@@ -1409,7 +1549,7 @@
         const hasNewWaiting = newOrders.some(o => o.waitingForPay);
         const hasServedWaiting = Object.values(groupedByTable).some(t => t.waitingForPay);
 
-        // Таб-бар с фиксацией (sticky), расположен на уровне top-[58px] (сразу под хедером)
+        // Таб-бар
         const tabsHtml = `
           <div class="flex border-b border-brand-brown/10 bg-white sticky top-[58px] z-20 overflow-x-auto no-scrollbar shadow-sm">
             <button 
@@ -1612,7 +1752,6 @@
                 if (!processedStockIds.has(stockId)) {
                   processedStockIds.add(stockId);
 
-                  // Ищем текстовое обозначение подкатегории для наглядности
                   let subcategoryTitle = '';
                   if (category.subcategories && item.subcategory) {
                     const sub = category.subcategories.find(s => s.id === item.subcategory);
@@ -1633,7 +1772,6 @@
               });
             });
 
-            // Группировка
             const categoriesWithStocks = {};
             stockItemsList.forEach(stock => {
               if (!categoriesWithStocks[stock.categoryTitle]) {
@@ -1655,7 +1793,6 @@
 
                 return `
                   <div class="p-3 bg-brand-cream/10 rounded-xl border border-brand-brown/5 flex flex-col gap-2.5">
-                    <!-- Заголовок товара (статический текст) -->
                     <div class="w-full">
                       <div class="p-1">
                         <h4 class="text-xs font-black text-brand-dark leading-tight">${currentDisplayName}</h4>
@@ -1667,7 +1804,6 @@
                       </div>
                     </div>
                     
-                    <!-- Управление остатками -->
                     <div class="flex items-center gap-1.5 w-full pt-1 border-t border-brand-brown/5">
                       <div class="flex items-center bg-white border border-brand-brown/20 rounded-lg px-2 py-1 gap-1 shadow-sm flex-1 justify-center">
                         <span class="text-[10px] text-brand-brown/60 font-semibold">Остаток:</span>
@@ -1697,7 +1833,6 @@
                 `;
               }).join('');
 
-              // Замена заголовка категории в складе, если она «Безалкогольные напитки»
               let displayCatTitle = catTitle;
               if (displayCatTitle === 'Безалкогольные напитки') {
                 displayCatTitle = 'Напитки';
@@ -1737,7 +1872,7 @@
               </div>
             `;
           } else {
-            ordersHtml = paidOrders.map(order => {
+            const listHtml = paidOrders.map(order => {
               const formattedTime = new Date(order.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 
               return `
@@ -1770,7 +1905,7 @@
                     </button>
                     <button 
                       onclick="deleteOrder('${order.id}')" 
-                      class="text-red-400 hover:text-red-600 text-xs flex items-center gap-1 py-1 px-2 hover:bg-red-50 rounded"
+                      class="text-red-400 hover:text-red-600 text-xs flex items-center gap-1 py-1 px-2 hover:bg-red-50 rounded font-bold"
                     >
                       <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Удалить
                     </button>
@@ -1778,6 +1913,21 @@
                 </div>
               `;
             }).join('');
+
+            // Добавляем кнопку "Удалить все" в конце списка на вкладке архив
+            ordersHtml = `
+              <div class="space-y-4">
+                ${listHtml}
+                <div class="pt-4 pb-6">
+                  <button 
+                    onclick="requestDeleteAllArchive()" 
+                    class="w-full bg-red-100 hover:bg-red-200 text-red-600 font-extrabold text-xs py-3.5 rounded-2xl transition flex items-center justify-center gap-2 border border-red-200 active:scale-[0.98] shadow-sm"
+                  >
+                    <i data-lucide="trash-2" class="w-4 h-4"></i> Очистить весь архив
+                  </button>
+                </div>
+              </div>
+            `;
           }
         }
 
@@ -1886,6 +2036,96 @@
           `;
         }
 
+        // Рендер модального окна ПИН-кода для защиты Остатков и Архива (Пароль "0000")
+        let securityModalHtml = '';
+        if (state.securityModal) {
+          const sectionTitle = state.securityModal.targetTab === 'inventory' ? 'ОСТАТКИ' : 'АРХИВ';
+          securityModalHtml = `
+            <div class="fixed inset-0 bg-brand-dark/95 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+              <div class="bg-brand-cream border-2 border-brand-peach p-6 rounded-3xl w-full max-w-xs shadow-2xl space-y-5 animate-fade-in text-center">
+                <div class="mx-auto w-12 h-12 rounded-full bg-brand-peach/15 flex items-center justify-center text-brand-peach">
+                  <i data-lucide="lock" class="w-6 h-6"></i>
+                </div>
+                
+                <div>
+                  <h3 class="text-sm font-black text-brand-dark uppercase tracking-wider">Защищенный раздел</h3>
+                  <p class="text-[11px] text-brand-brown mt-1">Для входа в раздел <strong class="text-brand-peach">"${sectionTitle}"</strong> введите пин-код</p>
+                </div>
+
+                <form onsubmit="handleSecuritySubmit(event)" class="space-y-4">
+                  <input 
+                    type="password" 
+                    id="securityPasswordInput" 
+                    placeholder="••••" 
+                    maxlength="4"
+                    required
+                    inputmode="numeric"
+                    pattern="[0-9]*"
+                    value="${state.securityPassword}"
+                    oninput="state.securityPassword = this.value; if(this.value.length === 4) { document.getElementById('securityFormBtn').click(); }"
+                    class="w-32 mx-auto text-center px-4 py-2.5 rounded-xl border ${state.securityError ? 'border-red-500 ring-2 ring-red-200' : 'border-brand-brown/20'} bg-white text-xl font-bold tracking-widest text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-peach"
+                  >
+                  
+                  ${state.securityError ? `
+                    <p class="text-[10px] font-bold text-red-600 animate-pulse">Неверный пин-код!</p>
+                  ` : ''}
+
+                  <div class="flex gap-2 pt-2">
+                    <button 
+                      type="button" 
+                      onclick="closeSecurityModal()" 
+                      class="flex-1 bg-white border border-brand-brown/20 text-brand-brown font-bold text-xs py-2.5 rounded-xl hover:bg-white/50 transition"
+                    >
+                      Отмена
+                    </button>
+                    <button 
+                      type="submit" 
+                      id="securityFormBtn"
+                      class="flex-1 bg-brand-peach hover:bg-brand-brown text-white font-bold text-xs py-2.5 rounded-xl transition shadow-md"
+                    >
+                      Войти
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          `;
+        }
+
+        // Рендер кастомного окна подтверждения (ДА / ОТМЕНА) для опасных действий
+        let confirmModalHtml = '';
+        if (state.confirmModal) {
+          confirmModalHtml = `
+            <div class="fixed inset-0 bg-brand-dark/90 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+              <div class="bg-brand-cream border-2 border-red-500 p-6 rounded-3xl w-full max-w-xs shadow-2xl space-y-4 animate-fade-in">
+                <div class="flex items-center gap-2 border-b border-brand-brown/10 pb-2">
+                  <i data-lucide="help-circle" class="text-red-500 w-5 h-5 flex-shrink-0"></i>
+                  <h3 class="text-xs font-black text-brand-dark uppercase tracking-wide">${state.confirmModal.title}</h3>
+                </div>
+                
+                <p class="text-[11px] text-brand-brown leading-relaxed font-medium">
+                  ${state.confirmModal.text}
+                </p>
+
+                <div class="grid grid-cols-2 gap-2 pt-2">
+                  <button 
+                    onclick="closeConfirmModal()" 
+                    class="bg-white border border-brand-brown/25 text-brand-brown font-bold text-xs py-2.5 rounded-xl hover:bg-white/60 transition"
+                  >
+                    ОТМЕНА
+                  </button>
+                  <button 
+                    onclick="triggerConfirmAction()" 
+                    class="bg-red-600 hover:bg-red-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow-md active:scale-95"
+                  >
+                    ДА
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+
         container.innerHTML = `
           <!-- Шапка админки -->
           <header class="bg-brand-dark text-brand-cream px-4 py-4 sticky top-0 z-20 flex justify-between items-center shadow-md">
@@ -1904,7 +2144,7 @@
           <!-- Табы Новые / Столы / Остатки / Архив -->
           ${tabsHtml}
 
-          <!-- Основной контент (Список заказов или... -->
+          <!-- Основной контент -->
           <main class="flex-1 p-4 space-y-4 overflow-y-auto">
             ${ordersHtml}
           </main>
@@ -1914,6 +2154,12 @@
 
           <!-- Детальное окно просмотра стола по тапу -->
           ${tableDetailModalHtml}
+
+          <!-- Модальное окно ввода пин-кода -->
+          ${securityModalHtml}
+
+          <!-- Окно окончательного подтверждения ДА / ОТМЕНА -->
+          ${confirmModalHtml}
         `;
       }
 
