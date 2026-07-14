@@ -247,7 +247,16 @@
     {
       "id": "snacks",
       "title": "Закуски",
-      "items": [],
+      "items": [
+        {
+          "id": "snack_1",
+          "name": "Профитроли с грибным муссом",
+          "price": 45,
+          "available": true,
+          "description": "125 гр.",
+          "subcategory": "zak"
+        }
+      ],
       "subcategories": [
         {
           "id": "zak",
