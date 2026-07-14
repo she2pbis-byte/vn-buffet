@@ -530,6 +530,13 @@
           "price": 240,
           "available": true,
           "description": "3 шт. 45 гр."
+        },
+        {
+          "id": "des_3",
+          "name": "Эклер Ванильный",
+          "price": 90,
+          "available": true,
+          "description": "100 гр."
         }
       ]
     }
