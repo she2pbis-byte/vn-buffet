@@ -341,6 +341,14 @@
           "available": true,
           "description": "250 мл.",
           "subcategory": "juices_water"
+        },
+        {
+          "id": "hot_1",
+          "name": "Кофе Эспрессо",
+          "price": 120,
+          "available": true,
+          "description": "30 мл.",
+          "subcategory": "hot"
         }
       ]
     },
