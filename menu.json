@@ -327,6 +327,14 @@
           "available": true,
           "description": "160 гр.",
           "subcategory": "sal"
+        },
+        {
+          "id": "snack_11",
+          "name": "Салат Парма",
+          "price": 350,
+          "available": true,
+          "description": "130 гр.",
+          "subcategory": "sal"
         }
       ],
       "subcategories": [
