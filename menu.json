@@ -119,16 +119,6 @@
           "subcategory": "strong"
         },
         {
-          "id": "alc_502",
-          "name": "Настойка Клюковка, ПОРЦИЯ",
-          "price": 190,
-          "description": "Ванильное Небо, 50 мл",
-          "available": true,
-          "stockLinkId": "stock_klyukovka",
-          "portionWeight": 1,
-          "subcategory": "strong"
-        },
-        {
           "id": "alc_503",
           "name": "Виски Джеймесон, ПОРЦИЯ",
           "price": 480,
