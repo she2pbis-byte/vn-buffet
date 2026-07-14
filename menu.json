@@ -537,6 +537,13 @@
           "price": 90,
           "available": true,
           "description": "100 гр."
+        },
+        {
+          "id": "des_4",
+          "name": "Эклер Шоколадный",
+          "price": 90,
+          "available": true,
+          "description": "100 гр."
         }
       ]
     }
