@@ -421,6 +421,13 @@
           "price": 130,
           "available": true,
           "description": "90 гр"
+        },
+        {
+          "id": "snack_10",
+          "name": "Сырный сэт",
+          "price": 700,
+          "available": true,
+          "description": "Неро, гауда, виноград. 150 гр"
         }
       ]
     },
