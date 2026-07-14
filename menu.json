@@ -518,20 +518,6 @@
       "title": "Десерты",
       "items": [
         {
-          "id": "des_5",
-          "name": "Медовик",
-          "price": 80,
-          "description": "-",
-          "available": true
-        },
-        {
-          "id": "des_6",
-          "name": "Брауни",
-          "price": 80,
-          "description": "-",
-          "available": true
-        },
-        {
           "id": "des_7",
           "name": "Красный бархат",
           "price": 90,
