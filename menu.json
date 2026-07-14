@@ -516,7 +516,15 @@
     {
       "id": "desserts",
       "title": "Десерты",
-      "items": []
+      "items": [
+        {
+          "id": "des_1",
+          "name": "Бон-бон в ассортименте",
+          "price": 110,
+          "available": true,
+          "description": "13 гр."
+        }
+      ]
     }
   ]
 }
