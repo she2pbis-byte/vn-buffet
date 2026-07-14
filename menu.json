@@ -435,6 +435,12 @@
           "description": "80 гр"
         }
       ]
+    },
+    {
+      "id": "hotdis",
+      "title": "Горячие блюда",
+      "subcategories": [],
+      "items": []
     }
   ]
 }
