@@ -117,6 +117,16 @@
           "subcategory": "still",
           "portionWeight": 1,
           "stockLinkId": "stock_zb_muskat"
+        },
+        {
+          "id": "alc_404",
+          "name": "ZB Мускат, БУТЫЛКА",
+          "price": 1750,
+          "available": true,
+          "description": "Крым, белое п/сл, 750 мл.",
+          "subcategory": "still",
+          "portionWeight": 5,
+          "stockLinkId": "stock_zb_muskat"
         }
       ]
     },
