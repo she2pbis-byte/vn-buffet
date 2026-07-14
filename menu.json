@@ -249,20 +249,6 @@
       "title": "Закуски",
       "items": [
         {
-          "id": "snack_9",
-          "name": "Круассан с курицей",
-          "price": 130,
-          "available": true,
-          "description": "90 гр"
-        },
-        {
-          "id": "snack_10",
-          "name": "Сырный сэт",
-          "price": 700,
-          "available": true,
-          "description": "Неро, гауда, виноград. 150 гр"
-        },
-        {
           "id": "snack_11",
           "name": "Сырно-мясной сэт",
           "price": 650,
