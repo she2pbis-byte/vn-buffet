@@ -386,6 +386,13 @@
           "price": 45,
           "available": true,
           "description": "13 гр"
+        },
+        {
+          "id": "snack_5",
+          "name": "Эклер с патэ из куриной печени",
+          "price": 80,
+          "available": true,
+          "description": "21 гр."
         }
       ]
     },
