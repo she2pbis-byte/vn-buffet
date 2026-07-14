@@ -287,6 +287,14 @@
           "available": true,
           "description": "90 гр.",
           "subcategory": "zak"
+        },
+        {
+          "id": "snack_6",
+          "name": "Круассан с курицей",
+          "price": 130,
+          "available": true,
+          "description": "90 гр.",
+          "subcategory": "zak"
         }
       ],
       "subcategories": [
