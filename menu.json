@@ -455,6 +455,13 @@
           "price": 250,
           "available": true,
           "description": "160 гр."
+        },
+        {
+          "id": "salad_3",
+          "name": "Салат Парма",
+          "price": 350,
+          "available": true,
+          "description": "130 гр."
         }
       ]
     },
