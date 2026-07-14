@@ -295,14 +295,6 @@
       ],
       "items": [
         {
-          "id": "hot_1",
-          "name": "Американо",
-          "price": 150,
-          "description": "150 мл",
-          "available": true,
-          "subcategory": "hot"
-        },
-        {
           "id": "hot_2",
           "name": "Капучино",
           "price": 220,
