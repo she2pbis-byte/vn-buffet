@@ -414,6 +414,13 @@
           "price": 130,
           "available": true,
           "description": "90 гр."
+        },
+        {
+          "id": "snack_9",
+          "name": "Круассан с курицей",
+          "price": 130,
+          "available": true,
+          "description": "90 гр"
         }
       ]
     },
