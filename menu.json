@@ -474,14 +474,6 @@
       ],
       "items": [
         {
-          "id": "hotdis_7586",
-          "name": "Шашлычок из свинины",
-          "price": 380,
-          "available": true,
-          "description": "90 гр.",
-          "subcategory": "hd"
-        },
-        {
           "id": "hotdis_7376",
           "name": "Шашлычок из картофеля",
           "price": 160,
