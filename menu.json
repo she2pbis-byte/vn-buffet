@@ -518,13 +518,6 @@
       "title": "Десерты",
       "items": [
         {
-          "id": "des_2",
-          "name": "Эклер Ванильный",
-          "price": 100,
-          "description": "-",
-          "available": true
-        },
-        {
           "id": "des_3",
           "name": "Эклер Шоколадный",
           "price": 100,
