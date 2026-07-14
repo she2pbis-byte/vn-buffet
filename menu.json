@@ -400,6 +400,13 @@
           "price": 160,
           "description": "Сырный соус в комплекте, 120 г",
           "available": true
+        },
+        {
+          "id": "snack_4",
+          "name": "Профитроли с грибным муссом",
+          "price": 45,
+          "available": true,
+          "description": "13 гр"
         }
       ]
     },
