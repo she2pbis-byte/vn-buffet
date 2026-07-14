@@ -303,6 +303,14 @@
           "available": true,
           "description": "150 мл.",
           "subcategory": "set"
+        },
+        {
+          "id": "snack_8",
+          "name": "Сырно-мясной сэт",
+          "price": 650,
+          "available": true,
+          "description": "160 гр.",
+          "subcategory": "set"
         }
       ],
       "subcategories": [
