@@ -504,6 +504,14 @@
           "available": true,
           "description": "100 гр.",
           "subcategory": "hd"
+        },
+        {
+          "id": "hotdis_9207",
+          "name": "Шашлычок из цыпленка",
+          "price": 320,
+          "available": true,
+          "description": "100 гр.",
+          "subcategory": "hd"
         }
       ]
     }
