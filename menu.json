@@ -448,6 +448,13 @@
           "price": 220,
           "available": true,
           "description": "125 гр"
+        },
+        {
+          "id": "salad_2",
+          "name": "Салат Греческий",
+          "price": 250,
+          "available": true,
+          "description": "160 гр."
         }
       ]
     },
