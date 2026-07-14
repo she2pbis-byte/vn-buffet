@@ -400,6 +400,13 @@
           "price": 70,
           "available": true,
           "description": "21 гр."
+        },
+        {
+          "id": "snack_7",
+          "name": "Круассан с лососем",
+          "price": 280,
+          "available": true,
+          "description": "90 гр"
         }
       ]
     },
