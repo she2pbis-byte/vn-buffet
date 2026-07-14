@@ -59,16 +59,6 @@
           "subcategory": "sparkling"
         },
         {
-          "id": "alc_201",
-          "name": "Кьянти Серистори, БОКАЛ",
-          "price": 500,
-          "description": "Италия, красное сухое, 150 мл",
-          "available": true,
-          "stockLinkId": "stock_chianti",
-          "portionWeight": 1,
-          "subcategory": "still"
-        },
-        {
           "id": "alc_202",
           "name": "Ле Гран Нуар Совиньон Блан, БОКАЛ",
           "price": 500,
