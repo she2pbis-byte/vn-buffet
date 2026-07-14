@@ -295,22 +295,6 @@
       ],
       "items": [
         {
-          "id": "hot_5",
-          "name": "Чай зеленый",
-          "price": 50,
-          "description": "Пакетированный",
-          "available": true,
-          "subcategory": "hot"
-        },
-        {
-          "id": "nalc_1",
-          "name": "Вода Хрустальная",
-          "price": 120,
-          "description": "ПЭТ, 500 мл",
-          "available": true,
-          "subcategory": "juices_water"
-        },
-        {
           "id": "nalc_2",
           "name": "Лимонад Добрый Кола",
           "price": 180,
