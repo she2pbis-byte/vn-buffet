@@ -319,6 +319,14 @@
           "available": true,
           "description": "125 гр.",
           "subcategory": "sal"
+        },
+        {
+          "id": "snack_10",
+          "name": "Салат Греческий",
+          "price": 250,
+          "available": true,
+          "description": "160 гр.",
+          "subcategory": "sal"
         }
       ],
       "subcategories": [
