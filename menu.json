@@ -249,20 +249,6 @@
       "title": "Закуски",
       "items": [
         {
-          "id": "snack_5",
-          "name": "Эклер с патэ из куриной печени",
-          "price": 80,
-          "available": true,
-          "description": "21 гр."
-        },
-        {
-          "id": "snack_6",
-          "name": "Эклер с сырным муссом",
-          "price": 70,
-          "available": true,
-          "description": "21 гр."
-        },
-        {
           "id": "snack_7",
           "name": "Круассан с лососем",
           "price": 280,
