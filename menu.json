@@ -512,6 +512,14 @@
           "available": true,
           "description": "100 гр.",
           "subcategory": "hd"
+        },
+        {
+          "id": "hotdis_8711",
+          "name": "Шашлычок из свинины",
+          "price": 380,
+          "available": true,
+          "description": "100 гр.",
+          "subcategory": "hd"
         }
       ]
     }
