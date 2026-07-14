@@ -516,15 +516,7 @@
     {
       "id": "desserts",
       "title": "Десерты",
-      "items": [
-        {
-          "id": "des_7",
-          "name": "Красный бархат",
-          "price": 90,
-          "description": "-",
-          "available": true
-        }
-      ]
+      "items": []
     }
   ]
 }
