@@ -518,20 +518,6 @@
       "title": "Десерты",
       "items": [
         {
-          "id": "des_3",
-          "name": "Эклер Шоколадный",
-          "price": 100,
-          "description": "-",
-          "available": true
-        },
-        {
-          "id": "des_4",
-          "name": "Корзиночка Восточная",
-          "price": 110,
-          "description": "С сухофруктами",
-          "available": true
-        },
-        {
           "id": "des_5",
           "name": "Медовик",
           "price": 80,
