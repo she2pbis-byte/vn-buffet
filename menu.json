@@ -407,6 +407,13 @@
           "price": 280,
           "available": true,
           "description": "90 гр"
+        },
+        {
+          "id": "snack_8",
+          "name": "Круассан с ветчиной",
+          "price": 130,
+          "available": true,
+          "description": "90 гр."
         }
       ]
     },
