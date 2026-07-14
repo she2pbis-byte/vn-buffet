@@ -157,16 +157,6 @@
           "stockLinkId": "stock_khrenovukha",
           "portionWeight": 10,
           "subcategory": "strong"
-        },
-        {
-          "id": "alc_506",
-          "name": "Настойка Клюковка, БУТЫЛКА",
-          "price": 1900,
-          "description": "Ванильное Небо, 500 мл (содержит 10 порций)",
-          "available": true,
-          "stockLinkId": "stock_klyukovka",
-          "portionWeight": 10,
-          "subcategory": "strong"
         }
       ]
     },
