@@ -255,6 +255,14 @@
           "available": true,
           "description": "125 гр.",
           "subcategory": "zak"
+        },
+        {
+          "id": "snack_2",
+          "name": "Эклер с патэ из куриной печени",
+          "price": 80,
+          "available": true,
+          "description": "21 гр.",
+          "subcategory": "zak"
         }
       ],
       "subcategories": [
