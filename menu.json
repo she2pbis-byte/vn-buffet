@@ -393,6 +393,13 @@
           "price": 80,
           "available": true,
           "description": "21 гр."
+        },
+        {
+          "id": "snack_6",
+          "name": "Эклер с сырным муссом",
+          "price": 70,
+          "available": true,
+          "description": "21 гр."
         }
       ]
     },
