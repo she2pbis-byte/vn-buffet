@@ -79,16 +79,6 @@
           "subcategory": "still"
         },
         {
-          "id": "alc_204",
-          "name": "Пино Гриджио, БОКАЛ",
-          "price": 500,
-          "description": "Италия, белое сухое, 150 мл",
-          "available": true,
-          "stockLinkId": "stock_pinot_grigio",
-          "portionWeight": 1,
-          "subcategory": "still"
-        },
-        {
           "id": "alc_400",
           "name": "ЗБ Рислинг, БУТЫЛКА",
           "price": 1750,
