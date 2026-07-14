@@ -304,6 +304,20 @@
           "available": true,
           "description": "Колбаса, сыр копченый, гренки. 160 гр."
         }
+      ],
+      "subcategories": [
+        {
+          "id": "zak",
+          "title": "Закуски"
+        },
+        {
+          "id": "sal",
+          "title": "Салаты"
+        },
+        {
+          "id": "set",
+          "title": "Сэты"
+        }
       ]
     },
     {
