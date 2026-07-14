@@ -327,6 +327,14 @@
           "available": true,
           "description": "130 гр.",
           "subcategory": "sal"
+        },
+        {
+          "id": "snack_12",
+          "name": "Эклер с сырным муссом",
+          "price": 70,
+          "available": true,
+          "description": "21 гр.",
+          "subcategory": "zak"
         }
       ],
       "subcategories": [
