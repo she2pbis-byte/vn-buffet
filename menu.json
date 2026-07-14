@@ -333,6 +333,14 @@
           "available": true,
           "description": "200 мл.",
           "subcategory": "juices_water"
+        },
+        {
+          "id": "nalc_6",
+          "name": "Лимонад Цитрусовый",
+          "price": 250,
+          "available": true,
+          "description": "250 мл.",
+          "subcategory": "juices_water"
         }
       ]
     },
