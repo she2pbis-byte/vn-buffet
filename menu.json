@@ -249,13 +249,6 @@
       "title": "Закуски",
       "items": [
         {
-          "id": "snack_4",
-          "name": "Профитроли с грибным муссом",
-          "price": 45,
-          "available": true,
-          "description": "13 гр"
-        },
-        {
           "id": "snack_5",
           "name": "Эклер с патэ из куриной печени",
           "price": 80,
