@@ -357,6 +357,14 @@
           "available": true,
           "description": "150 мл.",
           "subcategory": "hot"
+        },
+        {
+          "id": "hot_3",
+          "name": "Кофе Капучино",
+          "price": 190,
+          "available": true,
+          "description": "150 мл.",
+          "subcategory": "hot"
         }
       ]
     },
