@@ -59,16 +59,6 @@
           "subcategory": "sparkling"
         },
         {
-          "id": "alc_303",
-          "name": "ЗБ Москато, БУТЫЛКА",
-          "price": 2100,
-          "description": "Крым, белое полусладкое, 750 мл",
-          "available": true,
-          "stockLinkId": "stock_zb_moscato",
-          "portionWeight": 6,
-          "subcategory": "sparkling"
-        },
-        {
           "id": "alc_200",
           "name": "ЗБ Рислинг, БОКАЛ",
           "price": 350,
