@@ -293,16 +293,7 @@
           "title": "Соки / Воды"
         }
       ],
-      "items": [
-        {
-          "id": "nalc_5",
-          "name": "Сок Яблочный",
-          "price": 70,
-          "description": "200 мл",
-          "available": true,
-          "subcategory": "juices_water"
-        }
-      ]
+      "items": []
     },
     {
       "id": "snacks",
