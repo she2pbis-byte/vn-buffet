@@ -295,22 +295,6 @@
       ],
       "items": [
         {
-          "id": "hot_3",
-          "name": "Эспрессо",
-          "price": 150,
-          "description": "30 мл",
-          "available": true,
-          "subcategory": "hot"
-        },
-        {
-          "id": "hot_4",
-          "name": "Чай черный",
-          "price": 50,
-          "description": "Пакетированный",
-          "available": true,
-          "subcategory": "hot"
-        },
-        {
           "id": "hot_5",
           "name": "Чай зеленый",
           "price": 50,
