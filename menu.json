@@ -453,7 +453,16 @@
           "title": "Соуса"
         }
       ],
-      "items": []
+      "items": [
+        {
+          "id": "hotdis_0902",
+          "name": "Шашлычок из цыпленка",
+          "price": 250,
+          "available": true,
+          "description": "90 гр.",
+          "subcategory": "hd"
+        }
+      ]
     }
   ]
 }
