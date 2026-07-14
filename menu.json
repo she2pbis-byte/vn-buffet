@@ -79,16 +79,6 @@
           "subcategory": "still"
         },
         {
-          "id": "alc_401",
-          "name": "Кьянти Серистори, БУТЫЛКА",
-          "price": 2500,
-          "description": "Италия, красное сухое, 750 мл",
-          "available": true,
-          "stockLinkId": "stock_chianti",
-          "portionWeight": 5,
-          "subcategory": "still"
-        },
-        {
           "id": "alc_402",
           "name": "Ле Гран Нуар Совиньон Блан, БУТЫЛКА",
           "price": 2500,
