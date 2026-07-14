@@ -428,6 +428,13 @@
           "price": 700,
           "available": true,
           "description": "Неро, гауда, виноград. 150 гр"
+        },
+        {
+          "id": "snack_11",
+          "name": "Сырно-мясной сэт",
+          "price": 650,
+          "available": true,
+          "description": "Колбаса, сыр копченый, гренки. 160 гр."
         }
       ]
     },
