@@ -558,6 +558,13 @@
           "price": 80,
           "available": true,
           "description": "50 гр."
+        },
+        {
+          "id": "des_7",
+          "name": "Полосочка песочная",
+          "price": 90,
+          "available": true,
+          "description": "80 гр"
         }
       ]
     }
