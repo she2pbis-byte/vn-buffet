@@ -99,16 +99,6 @@
           "subcategory": "still"
         },
         {
-          "id": "alc_404",
-          "name": "Пино Гриджио, БУТЫЛКА",
-          "price": 2500,
-          "description": "Италия, белое сухое, 750 мл",
-          "available": true,
-          "stockLinkId": "stock_pinot_grigio",
-          "portionWeight": 5,
-          "subcategory": "still"
-        },
-        {
           "id": "alc_500",
           "name": "Коньяк Кизляр 3*, ПОРЦИЯ",
           "price": 300,
