@@ -136,6 +136,15 @@
           "description": "3*, 50 мл",
           "subcategory": "strong",
           "portionWeight": 1
+        },
+        {
+          "id": "alc_505",
+          "name": "Водка Толга, ПОРЦИЯ",
+          "price": 180,
+          "available": true,
+          "description": "50 мл.",
+          "subcategory": "strong",
+          "portionWeight": 1
         }
       ]
     },
