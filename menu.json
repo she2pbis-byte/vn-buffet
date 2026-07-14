@@ -477,6 +477,14 @@
           "available": true,
           "description": "160 гр.",
           "subcategory": "gar"
+        },
+        {
+          "id": "hotdis_0981",
+          "name": "Соус Томатный",
+          "price": 80,
+          "available": true,
+          "description": "50 гр.",
+          "subcategory": "sous"
         }
       ]
     }
