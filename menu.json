@@ -503,6 +503,13 @@
           "price": 110,
           "available": true,
           "description": "40 гр."
+        },
+        {
+          "id": "bake_6",
+          "name": "Курник по-Ярославски",
+          "price": 230,
+          "available": true,
+          "description": "130 гр."
         }
       ]
     },
