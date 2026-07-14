@@ -39,16 +39,6 @@
           "subcategory": "sparkling"
         },
         {
-          "id": "alc_103",
-          "name": "ЗБ Москато, БОКАЛ",
-          "price": 350,
-          "description": "Крым, белое полусладкое, 125 мл",
-          "available": true,
-          "stockLinkId": "stock_zb_moscato",
-          "portionWeight": 1,
-          "subcategory": "sparkling"
-        },
-        {
           "id": "alc_300",
           "name": "Балаклава Брют, БУТЫЛКА",
           "price": 2700,
