@@ -441,15 +441,7 @@
     {
       "id": "salads",
       "title": "Салаты",
-      "items": [
-        {
-          "id": "salad_1",
-          "name": "Салат Греческий",
-          "price": 290,
-          "description": "Свежие овощи, сыр Фета, маслины, 180 г",
-          "available": true
-        }
-      ]
+      "items": []
     },
     {
       "id": "bakery",
