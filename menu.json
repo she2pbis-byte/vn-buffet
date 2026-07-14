@@ -441,7 +441,15 @@
     {
       "id": "salads",
       "title": "Салаты",
-      "items": []
+      "items": [
+        {
+          "id": "salad_1",
+          "name": "Салат Цезарь с курицей",
+          "price": 220,
+          "available": true,
+          "description": "125 гр"
+        }
+      ]
     },
     {
       "id": "bakery",
