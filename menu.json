@@ -523,6 +523,13 @@
           "price": 110,
           "available": true,
           "description": "13 гр."
+        },
+        {
+          "id": "des_2",
+          "name": "Макрони в ассортименте",
+          "price": 240,
+          "available": true,
+          "description": "3 шт. 45 гр."
         }
       ]
     }
