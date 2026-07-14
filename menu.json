@@ -107,6 +107,16 @@
           "stockLinkId": "stock_jameson",
           "portionWeight": 1,
           "subcategory": "strong"
+        },
+        {
+          "id": "alc_204",
+          "name": "ZB Мускат, БОКАЛ",
+          "price": 350,
+          "available": true,
+          "description": "Крым, белое п/сл, 150 мл",
+          "subcategory": "still",
+          "portionWeight": 1,
+          "stockLinkId": "stock_zb_muskat"
         }
       ]
     },
