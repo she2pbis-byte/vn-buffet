@@ -551,6 +551,13 @@
           "price": 80,
           "available": true,
           "description": "50 гр."
+        },
+        {
+          "id": "des_6",
+          "name": "Мини Красный бархат",
+          "price": 80,
+          "available": true,
+          "description": "50 гр."
         }
       ]
     }
