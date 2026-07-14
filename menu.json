@@ -147,16 +147,6 @@
           "stockLinkId": "stock_cognac_kizlyar",
           "portionWeight": 10,
           "subcategory": "strong"
-        },
-        {
-          "id": "alc_505",
-          "name": "Настойка Хреновуха, БУТЫЛКА",
-          "price": 1900,
-          "description": "Ванильное Небо, 500 мл (содержит 10 порций)",
-          "available": true,
-          "stockLinkId": "stock_khrenovukha",
-          "portionWeight": 10,
-          "subcategory": "strong"
         }
       ]
     },
