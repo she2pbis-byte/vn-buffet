@@ -317,6 +317,14 @@
           "available": true,
           "description": "500 мл.",
           "subcategory": "juices_water"
+        },
+        {
+          "id": "nalc_4",
+          "name": "Добрый Фанта",
+          "price": 180,
+          "available": true,
+          "description": "500 мл.",
+          "subcategory": "juices_water"
         }
       ]
     },
