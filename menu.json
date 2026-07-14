@@ -485,6 +485,14 @@
           "available": true,
           "description": "50 гр.",
           "subcategory": "sous"
+        },
+        {
+          "id": "hotdis_0191",
+          "name": "Соус Барбекю",
+          "price": 80,
+          "available": true,
+          "description": "50 гр.",
+          "subcategory": "sous"
         }
       ]
     }
