@@ -496,6 +496,13 @@
           "price": 60,
           "description": "40 г",
           "available": true
+        },
+        {
+          "id": "bake_5",
+          "name": "Пирожок с брусникой",
+          "price": 110,
+          "available": true,
+          "description": "40 гр."
         }
       ]
     },
