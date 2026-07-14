@@ -99,16 +99,6 @@
           "subcategory": "still"
         },
         {
-          "id": "alc_500",
-          "name": "Коньяк Кизляр 3*, ПОРЦИЯ",
-          "price": 300,
-          "description": "50 мл",
-          "available": true,
-          "stockLinkId": "stock_cognac_kizlyar",
-          "portionWeight": 1,
-          "subcategory": "strong"
-        },
-        {
           "id": "alc_503",
           "name": "Виски Джеймесон, ПОРЦИЯ",
           "price": 480,
