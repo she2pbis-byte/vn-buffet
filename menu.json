@@ -127,6 +127,15 @@
           "subcategory": "still",
           "portionWeight": 5,
           "stockLinkId": "stock_zb_muskat"
+        },
+        {
+          "id": "alc_504",
+          "name": "Коньяк Кизляр",
+          "price": 320,
+          "available": true,
+          "description": "3*, 50 мл",
+          "subcategory": "strong",
+          "portionWeight": 1
         }
       ]
     },
