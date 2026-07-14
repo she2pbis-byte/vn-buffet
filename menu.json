@@ -293,7 +293,16 @@
           "title": "Соки / Воды"
         }
       ],
-      "items": []
+      "items": [
+        {
+          "id": "nalc_1",
+          "name": "Вода Хрустальная",
+          "price": 120,
+          "available": true,
+          "description": "500 мл.",
+          "subcategory": "juices_water"
+        }
+      ]
     },
     {
       "id": "snacks",
