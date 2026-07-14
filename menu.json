@@ -279,6 +279,14 @@
           "available": true,
           "description": "90 гр.",
           "subcategory": "zak"
+        },
+        {
+          "id": "snack_5",
+          "name": "Круассан с ветчиной",
+          "price": 130,
+          "available": true,
+          "description": "90 гр.",
+          "subcategory": "zak"
         }
       ],
       "subcategories": [
