@@ -137,16 +137,6 @@
           "stockLinkId": "stock_jameson",
           "portionWeight": 1,
           "subcategory": "strong"
-        },
-        {
-          "id": "alc_504",
-          "name": "Коньяк Кизляр 3*, БУТЫЛКА",
-          "price": 3000,
-          "description": "500 мл (содержит 10 порций)",
-          "available": true,
-          "stockLinkId": "stock_cognac_kizlyar",
-          "portionWeight": 10,
-          "subcategory": "strong"
         }
       ]
     },
