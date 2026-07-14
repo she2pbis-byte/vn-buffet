@@ -59,16 +59,6 @@
           "subcategory": "sparkling"
         },
         {
-          "id": "alc_302",
-          "name": "ЗБ Спуманте, БУТЫЛКА",
-          "price": 2100,
-          "description": "Крым, белое брют, 750 мл",
-          "available": true,
-          "stockLinkId": "stock_zb_spumante",
-          "portionWeight": 6,
-          "subcategory": "sparkling"
-        },
-        {
           "id": "alc_303",
           "name": "ЗБ Москато, БУТЫЛКА",
           "price": 2100,
