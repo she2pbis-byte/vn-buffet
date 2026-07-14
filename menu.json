@@ -544,6 +544,13 @@
           "price": 90,
           "available": true,
           "description": "100 гр."
+        },
+        {
+          "id": "des_5",
+          "name": "Мини-медовик",
+          "price": 80,
+          "available": true,
+          "description": "50 гр."
         }
       ]
     }
