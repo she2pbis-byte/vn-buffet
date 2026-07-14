@@ -388,13 +388,6 @@
           "available": true
         },
         {
-          "id": "snack_2",
-          "name": "Сырные палочки фри",
-          "price": 250,
-          "description": "С клюквенным соусом, 6 шт.",
-          "available": true
-        },
-        {
           "id": "snack_4",
           "name": "Профитроли с грибным муссом",
           "price": 45,
