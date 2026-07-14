@@ -295,14 +295,6 @@
       ],
       "items": [
         {
-          "id": "hot_2",
-          "name": "Капучино",
-          "price": 220,
-          "description": "150 мл",
-          "available": true,
-          "subcategory": "hot"
-        },
-        {
           "id": "hot_3",
           "name": "Эспрессо",
           "price": 150,
