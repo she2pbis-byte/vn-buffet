@@ -5,16 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Буфет</title>
   
-  <!-- Окрашивание статус-бара мобильных браузеров в цвет хедера (#1F1713) -->
   <meta name="theme-color" content="#1F1713">
   
-  <!-- Подключение Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- Иконки Lucide для наглядного UI -->
   <script src="https://unpkg.com/lucide@latest"></script>
   
-  <!-- Конфигурация кастомных цветов из предоставленной палитры -->
   <script>
     tailwind.config = {
       theme: {
@@ -32,7 +28,6 @@
     }
   </script>
 
-  <!-- Стили для плавности интерфейса -->
   <style>
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(10px); }
@@ -89,14 +84,12 @@
 <body class="bg-brand-cream text-brand-dark font-sans min-h-screen selection:bg-brand-peach selection:text-white">
 
   <div id="app" class="max-w-md mx-auto bg-brand-cream min-h-screen relative flex flex-col shadow-2xl">
-    <!-- Приложение монтируется динамически через JS -->
     <div id="loader" class="flex flex-col items-center justify-center flex-1 py-20">
       <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-peach"></div>
       <p class="mt-4 text-brand-brown font-medium">Подключение к системе заказов...</p>
     </div>
   </div>
 
-  <!-- Подключение Firebase через официальные CDN-модули (v11.6.1) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { 
@@ -923,7 +916,7 @@
       if (!state.user) return;
 
       const activeTableOrders = state.orders.filter(
-        order => String(order.table) === String(state.tableNumber) && order.status !== 'paid'
+        order => String(order.table) === String(tableNum) && order.status !== 'paid'
       );
       if (activeTableOrders.length === 0) return;
 
@@ -1122,16 +1115,13 @@
         container.className = "max-w-md mx-auto bg-brand-cream min-h-screen relative flex flex-col justify-between p-6 shadow-2xl animate-fade-in";
         container.innerHTML = `
           <div class="flex-1 flex flex-col justify-center py-4">
-            <!-- Логотип/Заголовок -->
             <div class="text-center mb-8 flex flex-col items-center">
-              <!-- Изображение логотипа logo.jpg: размер в половину ширины экрана, скругленные углы и тонкая белая рамка в 2px -->
               <img 
                 src="logo.jpg" 
                 alt="Логотип Буфет" 
                 onerror="handleLoginImageError(this)"
                 class="w-1/2 h-auto rounded-2xl border-2 border-white shadow-lg mb-4 object-cover"
               >
-              <!-- Запасной контейнер с иконкой, если картинка logo.jpg не загрузилась -->
               <div 
                 id="login-logo-fallback" 
                 style="display: none;" 
@@ -1143,7 +1133,6 @@
               <p class="text-xs text-brand-brown font-semibold mt-1">Онлайн-заказ</p>
             </div>
 
-            <!-- Блок Гостя -->
             <div class="bg-white border border-brand-brown/10 p-6 rounded-2xl shadow-sm mb-6">
               <h2 class="text-md font-bold text-brand-dark mb-4 flex items-center gap-2 border-b border-brand-cream pb-2">
                 <i data-lucide="user" class="w-4 h-4 text-brand-peach"></i> Я — Гость
@@ -1166,7 +1155,6 @@
               </form>
             </div>
 
-            <!-- Блок Admin -->
             <div class="bg-white border border-brand-brown/10 p-6 rounded-2xl shadow-sm">
               <h2 class="text-md font-bold text-brand-dark mb-4 flex items-center gap-2 border-b border-brand-cream pb-2">
                 <i data-lucide="shield-check" class="w-4 h-4 text-brand-brown"></i> Панель сотрудника
@@ -1407,7 +1395,6 @@
                 
                 <p class="text-[10px] text-brand-brown font-semibold flex-shrink-0">Проверьте состав заказа. Вы можете отредактировать позиции перед отправкой.</p>
                 
-                <!-- Прокручиваемый список позиций -->
                 <div class="space-y-2 overflow-y-auto pr-1 flex-1 min-h-0">
                   ${cartItemsHtml}
                 </div>
@@ -1518,7 +1505,6 @@
                     <p class="text-xs text-brand-brown">Стол №${state.tableNumber}</p>
                   </div>
 
-                  <!-- Прокручиваемый список истории счетов -->
                   <div class="space-y-3 overflow-y-auto flex-1 pr-1 no-scrollbar my-2 min-h-0">
                     ${myOrdersHtml}
                   </div>
@@ -1567,17 +1553,13 @@
         }
 
         container.innerHTML = `
-          <!-- Upper Navbar -->
           <header class="bg-brand-dark text-brand-cream px-4 py-4 sticky top-0 z-20 flex justify-between items-center shadow-md">
             <div class="flex items-center gap-2">
-              <!-- Интерактивная зона с циклической сменой названия/логотипа (logo.jpg) с высотой контейнера 49px и скрытием вылетающих элементов -->
               <div class="relative w-44 h-[49px] flex items-center overflow-hidden">
-                <!-- Текстовый заголовок -->
                 <div id="header-text" class="absolute inset-y-0 left-0 flex flex-col justify-center w-full ${state.showLigoLogo ? 'slide-out-right pointer-events-none' : 'slide-in-left'}">
                   <h2 class="font-extrabold text-sm uppercase tracking-wide leading-tight">БУФЕТ</h2>
                   <p class="text-[10px] text-brand-cream/80 font-bold leading-tight">Раздел: ${headerCategoryTitle}</p>
                 </div>
-                <!-- Картинка-логотип logo.jpg: без рамки, высота уменьшена на 20% (49px) -->
                 <div id="header-image" class="absolute inset-y-0 left-0 flex items-center w-full ${state.showLigoLogo ? 'slide-in-left' : 'slide-out-right pointer-events-none'}">
                   <img src="logo.jpg" class="h-[49px] w-auto object-contain rounded-lg shadow-md bg-white/10" alt="Logo" onerror="handleHeaderImageError(this)">
                 </div>
@@ -1585,7 +1567,6 @@
             </div>
             
             <div class="flex items-center gap-3">
-              <!-- Кнопка вызова счета стола гостя -->
               <button 
                 onclick="toggleGuestHistoryModal(true)" 
                 class="w-10 h-10 rounded-full bg-brand-peach border border-brand-peach flex items-center justify-center text-white hover:bg-brand-brown hover:border-brand-peach/85 transition relative"
@@ -1597,7 +1578,6 @@
                 ` : ''}
               </button>
 
-              <!-- Индикатор стола -->
               <div 
                 class="w-10 h-10 rounded-full bg-transparent flex flex-col items-center justify-center border border-brand-peach text-[17px] font-black text-brand-peach"
                 title="Ваш стол"
@@ -1605,7 +1585,6 @@
                 ${state.tableNumber}
               </div>
               
-              <!-- Кнопка выхода -->
               <button 
                 onclick="logout()" 
                 class="w-10 h-10 rounded-full bg-brand-peach border border-brand-peach flex items-center justify-center text-white hover:bg-brand-brown hover:border-brand-peach/85 transition" 
@@ -1616,28 +1595,22 @@
             </div>
           </header>
 
-          <!-- Плитка категорий меню (top-[65px] для идеальной стыковки под обновленным хедером) -->
           <div class="sticky top-[65px] z-10 bg-brand-cream/95 backdrop-blur-md border-b border-brand-brown/10 p-3">
             <div class="grid grid-cols-3 gap-2">
               ${categoryTabsHtml}
             </div>
             
-            <!-- Рендер подкатегорий -->
             ${subcategoriesHtml}
           </div>
 
-          <!-- Список блюд -->
           <main class="flex-1 p-4 space-y-3">
             ${itemsHtml}
           </main>
 
-          <!-- Нижняя часть с корзиной -->
           ${bottomCartHtml}
 
-          <!-- Окно предварительного просмотра -->
           ${confirmOrderModalHtml}
 
-          <!-- Окно истории заказов стола -->
           ${guestHistoryModalHtml}
         `;
       }
@@ -1777,7 +1750,6 @@
                     ${itemsListHtml}
                   </div>
 
-                  <!-- Статус "просит счет" -->
                   ${isWaiting ? `
                     <div class="text-center bg-red-50 text-red-600 text-xs font-extrabold py-2 px-3 rounded-xl border border-red-200 animate-pulse flex items-center justify-center gap-1.5">
                       <i data-lucide="credit-card" class="w-4 h-4"></i> ГОСТЬ ПРОСИТ СЧЕТ!
@@ -2151,7 +2123,7 @@
 
                   <div class="space-y-2">
                     <button 
-                      onclick="payAllOrdersForTable(${group.table})" 
+                      onclick="payAllOrdersForTable('${group.table}')" 
                       class="w-full bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-3 rounded-xl flex items-center justify-center gap-1.5 transition shadow-md active:scale-95"
                     >
                       <i data-lucide="banknote" class="w-4 h-4"></i> Оплатить и закрыть стол
@@ -2186,7 +2158,6 @@
                 </div>
 
                 <form onsubmit="handleSecuritySubmit(event)" class="space-y-4">
-                  <!-- Контролируем ввод через oninput с прямым вызовом функции без сброса DOM-фокуса -->
                   <input 
                     type="password" 
                     id="securityPasswordInput" 
@@ -2261,18 +2232,14 @@
         }
 
         container.innerHTML = `
-          <!-- Шапка админки -->
           <header class="bg-brand-dark text-brand-cream px-4 py-4 sticky top-0 z-20 flex justify-between items-center shadow-md">
             <div class="flex items-center gap-2">
               <i data-lucide="terminal" class="w-5 h-5 text-brand-peach flex-shrink-0"></i>
-              <!-- Интерактивная зона с циклической сменой названия/логотипа в админке с высотой контейнера 49px и скрытием вылетающих элементов -->
               <div class="relative w-44 h-[49px] flex items-center overflow-hidden">
-                <!-- Текстовый заголовок -->
                 <div id="header-text" class="absolute inset-y-0 left-0 flex flex-col justify-center w-full ${state.showLigoLogo ? 'slide-out-right pointer-events-none' : 'slide-in-left'}">
                   <h2 class="font-extrabold text-sm uppercase tracking-wide leading-tight">БУФЕТ</h2>
                   <p class="text-[10px] text-brand-cream/80 leading-tight">Панель сотрудника</p>
                 </div>
-                <!-- Картинка-логотип logo.jpg: без рамки, высота уменьшена на 20% (49px) -->
                 <div id="header-image" class="absolute inset-y-0 left-0 flex items-center w-full ${state.showLigoLogo ? 'slide-in-left' : 'slide-out-right pointer-events-none'}">
                   <img src="logo.jpg" class="h-[49px] w-auto object-contain rounded-lg shadow-md bg-white/10" alt="Logo" onerror="handleHeaderImageError(this)">
                 </div>
@@ -2283,24 +2250,18 @@
             </button>
           </header>
 
-          <!-- Табы Новые / Столы / Остатки / Архив (sticky top-[65px] для идеальной стыковки под обновленным хедером) -->
           ${tabsHtml}
 
-          <!-- Основной контент -->
           <main class="flex-1 p-4 space-y-4 overflow-y-auto">
             ${ordersHtml}
           </main>
 
-          <!-- Модальное окно чека архива -->
           ${billModalHtml}
 
-          <!-- Детальное окно просмотра стола по тапу -->
           ${tableDetailModalHtml}
 
-          <!-- Модальное окно ввода пин-кода -->
           ${securityModalHtml}
 
-          <!-- Окно окончательного подтверждения ДА / ОТМЕНА -->
           ${confirmModalHtml}
         `;
       }
