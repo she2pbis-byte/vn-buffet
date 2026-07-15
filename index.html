@@ -204,6 +204,7 @@
     window.selectAdminTable = selectAdminTable;
     window.closeAdminTableModal = closeAdminTableModal;
     window.handleHeaderImageError = handleHeaderImageError;
+    window.handleLoginImageError = handleLoginImageError;
     
     // Глобальные функции для управления остатками (Inventory)
     window.setStockZero = setStockZero;
@@ -228,7 +229,17 @@
       return state.customNames[item.id] || item.name;
     }
 
-    // --- Обработчик ошибки загрузки картинки logo.jpg ---
+    // --- Обработчик ошибки загрузки картинки logo.jpg на экране входа ---
+    function handleLoginImageError(imgElement) {
+      console.warn("Изображение logo.jpg на странице входа не загрузилось. Заменяем на иконку.");
+      const fallbackContainer = document.getElementById('login-logo-fallback');
+      if (fallbackContainer && imgElement) {
+        imgElement.style.display = 'none';
+        fallbackContainer.style.display = 'inline-flex';
+      }
+    }
+
+    // --- Обработчик ошибки загрузки картинки logo.jpg в шапке ---
     function handleHeaderImageError(imgElement) {
       console.warn("Изображение logo.jpg не найдено или не загрузилось. Смена шапки остановлена.");
       if (headerTimer) {
@@ -1112,8 +1123,20 @@
         container.innerHTML = `
           <div class="flex-1 flex flex-col justify-center py-4">
             <!-- Логотип/Заголовок -->
-            <div class="text-center mb-8">
-              <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-brand-peach text-white mb-3 shadow-md">
+            <div class="text-center mb-8 flex flex-col items-center">
+              <!-- Изображение логотипа logo.jpg: размер в половину ширины экрана, скругленные углы и тонкая белая рамка в 2px -->
+              <img 
+                src="logo.jpg" 
+                alt="Логотип Буфет на Лимоне" 
+                onerror="handleLoginImageError(this)"
+                class="w-1/2 h-auto rounded-2xl border-2 border-white shadow-lg mb-4 object-cover"
+              >
+              <!-- Запасной контейнер с иконкой, если картинка logo.jpg не загрузилась -->
+              <div 
+                id="login-logo-fallback" 
+                style="display: none;" 
+                class="items-center justify-center w-16 h-16 rounded-full bg-brand-peach text-white mb-3 shadow-md"
+              >
                 <i data-lucide="chef-hat" class="w-8 h-8"></i>
               </div>
               <h1 class="text-2xl font-extrabold text-brand-dark tracking-tight uppercase">БУФЕТ НА ЛИМОНЕ</h1>
