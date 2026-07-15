@@ -165,7 +165,7 @@
     const SECURITY_PASSWORD_RESTRICTED = "0000"; // Пароль для доступа к Остаткам и Архиву
     const MIN_TABLE = 1;
     const MAX_TABLE = 50; 
-    const DEFAULT_STOCK = 30; // По умолчанию даем 30 порций на склад при инициализации новой позиции
+    const DEFAULT_STOCK = 30; // По умолчанию даем 30 порций на склад в памяти, если записи в БД нет
     let headerTimer = null; // Переменная для хранения ID таймера смены заголовка
 
     // Ссылки на коллекции по правилу безопасных путей (RULE 1)
@@ -401,6 +401,8 @@
     }
 
     // --- Real-time подписка на остатки (inventory) ---
+    // ИСПРАВЛЕНО: Полностью удалена опасная авто-запись дефолтных значений в цикле.
+    // Если документа нет в БД, приложение просто использует DEFAULT_STOCK в памяти без принудительной перезаписи.
     function subscribeToInventory() {
       if (!state.user) return;
       const q = query(inventoryCollectionRef);
@@ -412,25 +414,6 @@
         });
 
         state.inventory = stockData;
-
-        // Авто-инициализация остатков порций для позиций из menu.json
-        if (state.menuData && state.menuData.categories) {
-          state.menuData.categories.forEach(category => {
-            category.items.forEach(async (item) => {
-              const linkId = item.stockLinkId || item.id;
-              if (state.inventory[linkId] === undefined) {
-                try {
-                  const itemDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'inventory', linkId);
-                  await setDoc(itemDocRef, { stock: DEFAULT_STOCK });
-                  state.inventory[linkId] = DEFAULT_STOCK;
-                } catch (e) {
-                  console.error("Ошибка при авто-инициализации остатка для:", linkId, e);
-                }
-              }
-            });
-          });
-        }
-
         render();
       }, (error) => {
         console.error("Ошибка при чтении Firestore (остатки):", error);
@@ -1888,6 +1871,7 @@
 
             inventoryListHtml = Object.entries(categoriesWithStocks).map(([catTitle, stocks]) => {
               const itemsRows = stocks.map(stock => {
+                // Если остаток в Firestore равен undefined, используем DEFAULT_STOCK для отображения без перезаписи в БД
                 const currentStockPortions = state.inventory[stock.stockId] !== undefined ? state.inventory[stock.stockId] : DEFAULT_STOCK;
 
                 const isOutOfStock = currentStockPortions <= 0;
