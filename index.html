@@ -8,7 +8,6 @@
   <meta name="theme-color" content="#1F1713">
   
   <script src="https://cdn.tailwindcss.com"></script>
-  
   <script src="https://unpkg.com/lucide@latest"></script>
   
   <script>
@@ -141,6 +140,7 @@
       activeSubcategoryId: '', // Активный виртуальный подраздел категории
       cart: {}, // Храним { itemId: quantity }
       orders: [], // Real-time список всех заказов из Firestore
+      tableSessions: {}, // Активные сессии столов { tableNum: ownerUid }
       adminTab: 'new', // 'new' | 'served' | 'inventory' | 'archive'
       selectedBillOrder: null, // Выбранный заказ для чека
       selectedAdminTable: null, // Выбранный стол для детального просмотра в панели сотрудника
@@ -158,6 +158,9 @@
 
       // Состояние для циклической смены заголовка в шапке (false - текст, true - картинка logo.jpg)
       showLigoLogo: false, 
+
+      // Дополнительные ошибки входа для вывода в интерфейс
+      loginErrorMsg: null
     };
 
     // --- Системные константы ---
@@ -172,6 +175,7 @@
     const ordersCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'orders');
     const inventoryCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'inventory');
     const namesCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'menu_names');
+    const sessionsCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'table_sessions');
 
     // Экспонируем функции в глобальную область видимости
     window.addToCart = addToCart;
@@ -198,6 +202,7 @@
     window.closeAdminTableModal = closeAdminTableModal;
     window.handleHeaderImageError = handleHeaderImageError;
     window.handleLoginImageError = handleLoginImageError;
+    window.forceUnlockTable = forceUnlockTable; // Новая функция для админа
     
     // Глобальные функции для управления остатками (Inventory)
     window.setStockZero = setStockZero;
@@ -297,6 +302,7 @@
             subscribeToOrders();
             subscribeToInventory();
             subscribeToCustomNames();
+            subscribeToSessions();
           }
         });
 
@@ -312,10 +318,8 @@
         } else if (tableParam) {
           const tableNum = parseInt(tableParam, 10);
           if (tableNum >= MIN_TABLE && tableNum <= MAX_TABLE) {
-            state.tableNumber = tableNum;
-            state.screen = 'guest_menu';
-            localStorage.setItem('bufet_role', 'guest');
-            localStorage.setItem('bufet_table', tableNum);
+            // Для входа по QR (параметр в URL) автоматически регистрируем за столом
+            tryDirectTableAccess(tableNum);
           }
         } else {
           // Проверяем сохраненную сессию
@@ -340,14 +344,12 @@
           const imgEl = document.getElementById('header-image');
           if (textEl && imgEl) {
             if (state.showLigoLogo) {
-              // Текст улетает вправо, картинка вылетает из левого края
               textEl.classList.remove('slide-in-left');
               textEl.classList.add('slide-out-right', 'pointer-events-none');
               
               imgEl.classList.remove('slide-out-right', 'pointer-events-none');
               imgEl.classList.add('slide-in-left');
             } else {
-              // Картинка улетает вправо, текст вылетает из левого края
               imgEl.classList.remove('slide-in-left');
               imgEl.classList.add('slide-out-right', 'pointer-events-none');
               
@@ -372,6 +374,40 @@
       }
     }
 
+    // --- Вход по прямому сканированию QR-кода ---
+    async function tryDirectTableAccess(tableNum) {
+      if (!auth.currentUser) return;
+      const currentUid = auth.currentUser.uid;
+      const tableKey = String(tableNum);
+
+      try {
+        const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'table_sessions', tableKey);
+        const snap = await getDoc(sessionDocRef);
+
+        if (snap.exists()) {
+          const activeOwnerUid = snap.data().ownerUid;
+          // Если за столом сидит другое устройство, перенаправляем на логин с ошибкой блокировки
+          if (activeOwnerUid !== currentUid) {
+            state.screen = 'login';
+            state.loginErrorMsg = `Стол №${tableNum} уже занят другим гостем. Обратитесь к персоналу!`;
+            render();
+            return;
+          }
+        } else {
+          // Если стол свободен, занимаем его
+          await setDoc(sessionDocRef, { ownerUid: currentUid, timestamp: new Date().toISOString() });
+        }
+
+        state.tableNumber = tableNum;
+        state.screen = 'guest_menu';
+        localStorage.setItem('bufet_role', 'guest');
+        localStorage.setItem('bufet_table', tableNum);
+        render();
+      } catch (e) {
+        console.error("Ошибка авторизации по QR стола:", e);
+      }
+    }
+
     // --- Real-time подписка на заказы из Firestore ---
     function subscribeToOrders() {
       if (!state.user) return;
@@ -383,7 +419,6 @@
           fetchedOrders.push({ id: doc.id, ...doc.data() });
         });
 
-        // Сортировка: сначала те, кто ждет оплату (waitingForPay), затем по времени создания
         fetchedOrders.sort((a, b) => {
           const aWait = a.waitingForPay ? 1 : 0;
           const bWait = b.waitingForPay ? 1 : 0;
@@ -401,8 +436,6 @@
     }
 
     // --- Real-time подписка на остатки (inventory) ---
-    // ИСПРАВЛЕНО: Полностью удалена опасная авто-запись дефолтных значений в цикле.
-    // Если документа нет в БД, приложение просто использует DEFAULT_STOCK в памяти без принудительной перезаписи.
     function subscribeToInventory() {
       if (!state.user) return;
       const q = query(inventoryCollectionRef);
@@ -434,6 +467,33 @@
         render();
       }, (error) => {
         console.error("Ошибка при чтении Firestore (названия блюд):", error);
+      });
+    }
+
+    // --- Real-time подписка на активные сессии столов ---
+    function subscribeToSessions() {
+      if (!state.user) return;
+      const q = query(sessionsCollectionRef);
+
+      onSnapshot(q, (snapshot) => {
+        const activeSessions = {};
+        snapshot.forEach((doc) => {
+          activeSessions[doc.id] = doc.data().ownerUid;
+        });
+        state.tableSessions = activeSessions;
+        
+        // Дополнительная проверка на лету: если наш стол принудительно разблокировали админы, выкидываем на логин
+        if (state.screen === 'guest_menu' && state.tableNumber) {
+          const activeOwner = activeSessions[String(state.tableNumber)];
+          if (!activeOwner || activeOwner !== auth.currentUser?.uid) {
+            logout();
+            showNotification("Сессия стола была сброшена администратором", "info");
+          }
+        }
+        
+        render();
+      }, (error) => {
+        console.error("Ошибка при чтении Firestore (сессии столов):", error);
       });
     }
 
@@ -520,7 +580,6 @@
         state.securityPassword = '';
         state.securityError = false;
         render();
-        // Устанавливаем фокус на поле ввода пароля защиты
         setTimeout(() => {
           const input = document.getElementById('securityPasswordInput');
           if (input) input.focus();
@@ -532,10 +591,9 @@
       }
     }
 
-    // Обновление значения пин-кода в памяти без принудительного полного перерендара (чтобы не терялся фокус ввода)
+    // Обновление значения пин-кода в памяти без принудительного полного перерендара
     function updateSecurityPasswordVal(val) {
       state.securityPassword = val;
-      // Если введено 4 цифры, автоматически запускаем отправку
       if (val.length === 4) {
         handleSecuritySubmit();
       }
@@ -615,7 +673,7 @@
       render();
     }
 
-    // Очистка корзины
+    // Очистить корзину
     function clearCart() {
       if (state.isSubmittingOrder) return;
       state.cart = {};
@@ -679,7 +737,6 @@
       }
 
       render();
-      // Фокусировка на начало списка при смене категории
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -687,7 +744,6 @@
     function changeSubcategory(subId) {
       state.activeSubcategoryId = subId;
       render();
-      // Фокусировка на начало списка при смене подразделов внутри категории
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -738,24 +794,82 @@
       state.tableNumber = null;
       state.cart = {};
       state.selectedAdminTable = null;
+      state.loginErrorMsg = null;
       render();
     }
 
-    // --- Обработчики событий ---
-    function handleGuestLogin(event) {
+    // --- Интерактивный вход гостя с проверкой "Владельца стола" ---
+    async function handleGuestLogin(event) {
       event.preventDefault();
+      state.loginErrorMsg = null;
+
+      if (!auth.currentUser) {
+        showNotification("Авторизация не завершена. Подождите.", "error");
+        return;
+      }
+
       const inputVal = document.getElementById('tableInput').value;
       const tableNum = parseInt(inputVal, 10);
+      const currentUid = auth.currentUser.uid;
 
       if (tableNum >= MIN_TABLE && tableNum <= MAX_TABLE) {
-        state.tableNumber = tableNum;
-        state.screen = 'guest_menu';
-        localStorage.setItem('bufet_role', 'guest');
-        localStorage.setItem('bufet_table', tableNum);
-        render();
+        const tableKey = String(tableNum);
+        
+        try {
+          const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'table_sessions', tableKey);
+          const snap = await getDoc(sessionDocRef);
+
+          if (snap.exists()) {
+            const activeOwnerUid = snap.data().ownerUid;
+            
+            // Если стол занят другим устройством
+            if (activeOwnerUid !== currentUid) {
+              state.loginErrorMsg = `Этот стол уже занят другим гостем. Обратитесь к официанту, чтобы очистить сессию или объединить счет.`;
+              render();
+              return;
+            }
+          } else {
+            // Если стол свободен, закрепляем его за текущим гостем
+            await setDoc(sessionDocRef, {
+              ownerUid: currentUid,
+              timestamp: new Date().toISOString()
+            });
+          }
+
+          state.tableNumber = tableNum;
+          state.screen = 'guest_menu';
+          localStorage.setItem('bufet_role', 'guest');
+          localStorage.setItem('bufet_table', tableNum);
+          render();
+        } catch (e) {
+          console.error("Ошибка при проверке сессии стола:", e);
+          showNotification("Не удалось войти за стол. Ошибка сети.", "error");
+        }
       } else {
         showNotification(`Пожалуйста, введите номер стола от ${MIN_TABLE} до ${MAX_TABLE}`, 'error');
       }
+    }
+
+    // Принудительное освобождение стола (Кнопка для админов)
+    async function forceUnlockTable(tableNum) {
+      if (!state.user) return;
+      const tableKey = String(tableNum);
+      
+      state.confirmModal = {
+        title: 'Разблокировать стол?',
+        text: `Вы действительно хотите сбросить сессию стола №${tableNum}? Это позволит новому устройству зайти за него. Все активные заказы сохранятся.`,
+        onConfirm: async () => {
+          try {
+            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'table_sessions', tableKey));
+            showNotification(`Стол №${tableNum} разблокирован`, 'success');
+            state.selectedAdminTable = null;
+            render();
+          } catch (e) {
+            console.error("Ошибка при очистке сессии стола:", e);
+          }
+        }
+      };
+      render();
     }
 
     // Авторизация сотрудника
@@ -868,11 +982,20 @@
 
         state.confirmModal = {
           title: 'Оплатить заказ?',
-          text: `Вы действительно хотите отметить заказ №${orderNum} (Стол №${tableNum}) как ОПЛАЧЕННЫЙ? Это действие нельзя отменить.`,
+          text: `Вы действительно хотите отметить заказ №${orderNum} (Стол №${tableNum}) как ОПЛАЧЕННЫЙ? Это действие нельзя отменить. Сессия стола будет автоматически освобождена.`,
           onConfirm: async () => {
             try {
               const orderDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId);
               await updateDoc(orderDocRef, { status: 'paid' });
+              
+              // При оплате единственного заказа стола — сбрасываем и привязку стола к устройству
+              const otherActiveOrders = state.orders.filter(
+                o => String(o.table) === String(tableNum) && o.id !== orderId && o.status !== 'paid'
+              );
+              if (otherActiveOrders.length === 0) {
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'table_sessions', String(tableNum)));
+              }
+
               showNotification('Заказ успешно оплачен!', 'success');
             } catch (error) {
               console.error("Ошибка обновления статуса:", error);
@@ -882,7 +1005,6 @@
         };
         render();
       } else {
-        // Для перехода в "отдан" (served) оставляем прямое действие для скорости работы
         try {
           const orderDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId);
           await updateDoc(orderDocRef, { status: newStatus });
@@ -894,7 +1016,7 @@
       }
     }
 
-    // Оплата всех заказов стола разом с физическим объединением (С подтверждением)
+    // Оплата всех заказов стола разом с физическим объединением и освобождением сессии (С подтверждением)
     function payAllOrdersForTable(tableNum) {
       if (!state.user) return;
 
@@ -907,7 +1029,7 @@
 
       state.confirmModal = {
         title: 'Оплатить весь стол?',
-        text: `Вы действительно хотите принять оплату и закрыть стол №${tableNum}? Все активные заказы стола будут объединены в один чек на сумму ${totalAmount} ₽.`,
+        text: `Вы действительно хотите принять оплату и закрыть стол №${tableNum}? Все активные заказы стола будут объединены в один чек на сумму ${totalAmount} ₽. Привязка стола к гостю будет очищена!`,
         onConfirm: async () => {
           const combinedItemsMap = {};
           let totalAmountCombined = 0;
@@ -933,14 +1055,19 @@
           };
 
           try {
+            // 1. Создаем объединенный оплаченный заказ в архиве
             await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'orders', combinedOrderId), combinedPaidOrder);
 
+            // 2. Удаляем старые заказы стола
             for (const order of activeTableOrders) {
               await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'orders', order.id));
             }
 
+            // 3. Гарантированно освобождаем сессию стола, чтобы за него мог сесть другой человек
+            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'table_sessions', String(tableNum)));
+
             state.selectedAdminTable = null;
-            showNotification(`Все заказы стола №${tableNum} успешно объединены и оплачены!`, 'success');
+            showNotification(`Все заказы стола №${tableNum} успешно объединены и оплачены! Стол свободен.`, 'success');
           } catch (error) {
             console.error("Ошибка при оплате стола:", error);
             showNotification("Ошибка сети при проведении оплаты", "error");
@@ -973,7 +1100,7 @@
       render();
     }
 
-    // --- ... Удаление всего архива ---
+    // Удаление всего архива
     function requestDeleteAllArchive() {
       const paidOrders = state.orders.filter(o => o.status === 'paid');
       if (paidOrders.length === 0) {
@@ -985,7 +1112,6 @@
         title: 'УНИЧТОЖИТЬ ВЕСЬ АРХИВ?',
         text: `Вы собираетесь полностью ОЧИСТИТЬ АРХИВ (удалить все оплаченные заказы: ${paidOrders.length} шт.). Все финансовые данные будут потеряны безвозвратно! Продолжить?`,
         onConfirm: () => {
-          // Второе подтверждение для исключения случайных кликов на мобильных
           setTimeout(() => {
             state.confirmModal = {
               title: 'ВЫ УВЕРЕНЫ НА 100%?',
@@ -1103,7 +1229,7 @@
                 src="logo.jpg" 
                 alt="Логотип Буфет" 
                 onerror="handleLoginImageError(this)"
-                class="w-1/2 h-auto rounded-2xl border-2 border-white shadow-lg mb-4 object-cover"
+                class="w-1/2 h-auto rounded-2xl border-2 border-white shadow-lg mb-4 object-cover animate-fade-in"
               >
               <div 
                 id="login-logo-fallback" 
@@ -1113,8 +1239,19 @@
                 <i data-lucide="chef-hat" class="w-8 h-8"></i>
               </div>
               <h1 class="text-2xl font-extrabold text-brand-dark tracking-tight uppercase">БУФЕТ</h1>
-              <p class="text-xs text-brand-brown font-semibold mt-1">Онлайн-заказ</p>
+              <p class="text-xs text-brand-brown font-semibold mt-1">Онлайн-заказ у вашего стола</p>
             </div>
+
+            <!-- Блок вывода ошибок блокировки стола -->
+            ${state.loginErrorMsg ? `
+              <div class="bg-red-50 border border-red-200 text-red-700 text-xs font-semibold p-4 rounded-2xl mb-6 flex items-start gap-3 animate-fade-in shadow-inner">
+                <i data-lucide="info" class="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5"></i>
+                <div class="space-y-1">
+                  <p class="font-bold">Стол временно заблокирован</p>
+                  <p class="text-red-600/90 leading-relaxed">${state.loginErrorMsg}</p>
+                </div>
+              </div>
+            ` : ''}
 
             <div class="bg-white border border-brand-brown/10 p-6 rounded-2xl shadow-sm mb-6">
               <h2 class="text-md font-bold text-brand-dark mb-4 flex items-center gap-2 border-b border-brand-cream pb-2">
@@ -1136,6 +1273,10 @@
                   </button>
                 </div>
               </form>
+              <p class="text-[10px] text-brand-brown/60 mt-3 flex items-center gap-1">
+                <i data-lucide="qr-code" class="w-3 h-3 text-brand-peach"></i>
+                Вы также можете войти, просто отсканировав QR-код со стола.
+              </p>
             </div>
 
             <div class="bg-white border border-brand-brown/10 p-6 rounded-2xl shadow-sm">
@@ -1529,7 +1670,6 @@
           `;
         }
 
-        // Текущая категория для хедера
         let headerCategoryTitle = currentCategory.title || '';
         if (headerCategoryTitle === 'Безалкогольные напитки') {
           headerCategoryTitle = 'Напитки';
@@ -1639,7 +1779,6 @@
         const hasNewWaiting = newOrders.some(o => o.waitingForPay);
         const hasServedWaiting = Object.values(groupedByTable).some(t => t.waitingForPay);
 
-        // Таб-бар с учетом измененной высоты хедера (sticky top-[65px])
         const tabsHtml = `
           <div class="flex border-b border-brand-brown/10 bg-white sticky top-[65px] z-20 overflow-x-auto no-scrollbar shadow-sm">
             <button 
@@ -1871,7 +2010,6 @@
 
             inventoryListHtml = Object.entries(categoriesWithStocks).map(([catTitle, stocks]) => {
               const itemsRows = stocks.map(stock => {
-                // Если остаток в Firestore равен undefined, используем DEFAULT_STOCK для отображения без перезаписи в БД
                 const currentStockPortions = state.inventory[stock.stockId] !== undefined ? state.inventory[stock.stockId] : DEFAULT_STOCK;
 
                 const isOutOfStock = currentStockPortions <= 0;
@@ -2059,7 +2197,7 @@
           </div>
         ` : '';
 
-        // Детальное модальное окно для стола по тапу на плашку
+        // Детальное модальное окно для стола по тапу на плашку (Добавлена разблокировка)
         let tableDetailModalHtml = '';
         if (state.selectedAdminTable && groupedByTable[state.selectedAdminTable]) {
           const group = groupedByTable[state.selectedAdminTable];
@@ -2112,6 +2250,14 @@
                     >
                       <i data-lucide="banknote" class="w-4 h-4"></i> Оплатить и закрыть стол
                     </button>
+                    
+                    <button 
+                      onclick="forceUnlockTable('${group.table}')" 
+                      class="w-full bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-bold py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition"
+                    >
+                      <i data-lucide="unlock" class="w-4 h-4"></i> Сбросить привязку стола
+                    </button>
+
                     <button 
                       onclick="closeAdminTableModal()" 
                       class="w-full bg-white border border-brand-brown/20 text-brand-brown font-bold text-xs py-2.5 rounded-xl hover:bg-white/50 transition"
