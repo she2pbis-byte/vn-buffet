@@ -56,6 +56,34 @@
       -ms-overflow-style: none;
       scrollbar-width: none;
     }
+
+    /* Анимации вылетания из левого края */
+    @keyframes slideInLeft {
+      0% {
+        transform: translateX(-100%);
+        opacity: 0;
+      }
+      100% {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+    @keyframes slideOutRight {
+      0% {
+        transform: translateX(0);
+        opacity: 1;
+      }
+      100% {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+    }
+    .slide-in-left {
+      animation: slideInLeft 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .slide-out-right {
+      animation: slideOutRight 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
   </style>
 </head>
 <body class="bg-brand-cream text-brand-dark font-sans min-h-screen selection:bg-brand-peach selection:text-white">
@@ -213,12 +241,12 @@
       const textEl = document.getElementById('header-text');
       const imgEl = document.getElementById('header-image');
       if (textEl) {
-        textEl.classList.remove('opacity-0', 'pointer-events-none');
-        textEl.classList.add('opacity-100');
+        textEl.classList.remove('slide-out-right', 'pointer-events-none');
+        textEl.classList.add('slide-in-left');
       }
       if (imgEl) {
-        imgEl.classList.remove('opacity-100');
-        imgEl.classList.add('opacity-0', 'pointer-events-none');
+        imgEl.classList.remove('slide-in-left');
+        imgEl.classList.add('slide-out-right', 'pointer-events-none');
       }
     }
 
@@ -300,7 +328,7 @@
           }
         }
 
-        // 5. Запуск циклического таймера для периодической смены шапки (раз в 3 секунды)
+        // 5. Запуск циклического таймера для периодической смены шапки с анимацией вылетания из левого края (раз в 3 секунды)
         if (headerTimer) clearInterval(headerTimer);
         headerTimer = setInterval(() => {
           state.showLigoLogo = !state.showLigoLogo;
@@ -308,15 +336,19 @@
           const imgEl = document.getElementById('header-image');
           if (textEl && imgEl) {
             if (state.showLigoLogo) {
-              textEl.classList.remove('opacity-100');
-              textEl.classList.add('opacity-0', 'pointer-events-none');
-              imgEl.classList.remove('opacity-0', 'pointer-events-none');
-              imgEl.classList.add('opacity-100');
+              // Текст улетает вправо, картинка вылетает из левого края
+              textEl.classList.remove('slide-in-left');
+              textEl.classList.add('slide-out-right', 'pointer-events-none');
+              
+              imgEl.classList.remove('slide-out-right', 'pointer-events-none');
+              imgEl.classList.add('slide-in-left');
             } else {
-              textEl.classList.remove('opacity-0', 'pointer-events-none');
-              textEl.classList.add('opacity-100');
-              imgEl.classList.remove('opacity-100');
-              imgEl.classList.add('opacity-0', 'pointer-events-none');
+              // Картинка улетает вправо, текст вылетает из левого края
+              imgEl.classList.remove('slide-in-left');
+              imgEl.classList.add('slide-out-right', 'pointer-events-none');
+              
+              textEl.classList.remove('slide-out-right', 'pointer-events-none');
+              textEl.classList.add('slide-in-left');
             }
           }
         }, 3000);
@@ -954,7 +986,7 @@
       render();
     }
 
-    // --- Удаление всего архива ---
+    // --- ... Удаление всего архива ---
     function requestDeleteAllArchive() {
       const paidOrders = state.orders.filter(o => o.status === 'paid');
       if (paidOrders.length === 0) {
@@ -1515,15 +1547,15 @@
           <!-- Upper Navbar -->
           <header class="bg-brand-dark text-brand-cream px-4 py-4 sticky top-0 z-20 flex justify-between items-center shadow-md">
             <div class="flex items-center gap-2">
-              <!-- Интерактивная зона с циклической сменой названия/логотипа (ligo2.png) с высотой контейнера 49px -->
-              <div class="relative w-44 h-[49px] flex items-center">
+              <!-- Интерактивная зона с циклической сменой названия/логотипа (ligo2.png) с высотой контейнера 49px и скрытием вылетающих элементов -->
+              <div class="relative w-44 h-[49px] flex items-center overflow-hidden">
                 <!-- Текстовый заголовок -->
-                <div id="header-text" class="absolute inset-y-0 left-0 flex flex-col justify-center transition-opacity duration-500 w-full ${state.showLigoLogo ? 'opacity-0 pointer-events-none' : 'opacity-100'}">
+                <div id="header-text" class="absolute inset-y-0 left-0 flex flex-col justify-center w-full ${state.showLigoLogo ? 'slide-out-right pointer-events-none' : 'slide-in-left'}">
                   <h2 class="font-extrabold text-sm uppercase tracking-wide leading-tight">БУФЕТ НА ЛИМОНЕ</h2>
                   <p class="text-[10px] text-brand-cream/80 font-bold leading-tight">Раздел: ${headerCategoryTitle}</p>
                 </div>
                 <!-- Картинка-логотип ligo2.png: без рамки, высота уменьшена на 20% (49px) -->
-                <div id="header-image" class="absolute inset-y-0 left-0 flex items-center transition-opacity duration-500 w-full ${state.showLigoLogo ? 'opacity-100' : 'opacity-0 pointer-events-none'}">
+                <div id="header-image" class="absolute inset-y-0 left-0 flex items-center w-full ${state.showLigoLogo ? 'slide-in-left' : 'slide-out-right pointer-events-none'}">
                   <img src="ligo2.png" class="h-[49px] w-auto object-contain rounded-lg shadow-md bg-white/10" alt="Ligo" onerror="handleHeaderImageError(this)">
                 </div>
               </div>
@@ -2210,15 +2242,15 @@
           <header class="bg-brand-dark text-brand-cream px-4 py-4 sticky top-0 z-20 flex justify-between items-center shadow-md">
             <div class="flex items-center gap-2">
               <i data-lucide="terminal" class="w-5 h-5 text-brand-peach flex-shrink-0"></i>
-              <!-- Интерактивная зона с циклической сменой названия/логотипа в админке с высотой контейнера 49px -->
-              <div class="relative w-44 h-[49px] flex items-center">
+              <!-- Интерактивная зона с циклической сменой названия/логотипа в админке с высотой контейнера 49px и скрытием вылетающих элементов -->
+              <div class="relative w-44 h-[49px] flex items-center overflow-hidden">
                 <!-- Текстовый заголовок -->
-                <div id="header-text" class="absolute inset-y-0 left-0 flex flex-col justify-center transition-opacity duration-500 w-full ${state.showLigoLogo ? 'opacity-0 pointer-events-none' : 'opacity-100'}">
+                <div id="header-text" class="absolute inset-y-0 left-0 flex flex-col justify-center w-full ${state.showLigoLogo ? 'slide-out-right pointer-events-none' : 'slide-in-left'}">
                   <h2 class="font-extrabold text-sm uppercase tracking-wide leading-tight">БУФЕТ НА ЛИМОНЕ</h2>
                   <p class="text-[10px] text-brand-cream/80 leading-tight">Панель сотрудника</p>
                 </div>
                 <!-- Картинка-логотип ligo2.png: без рамки, высота уменьшена на 20% (49px) -->
-                <div id="header-image" class="absolute inset-y-0 left-0 flex items-center transition-opacity duration-500 w-full ${state.showLigoLogo ? 'opacity-100' : 'opacity-0 pointer-events-none'}">
+                <div id="header-image" class="absolute inset-y-0 left-0 flex items-center w-full ${state.showLigoLogo ? 'slide-in-left' : 'slide-out-right pointer-events-none'}">
                   <img src="ligo2.png" class="h-[49px] w-auto object-contain rounded-lg shadow-md bg-white/10" alt="Ligo" onerror="handleHeaderImageError(this)">
                 </div>
               </div>
