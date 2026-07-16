@@ -43,7 +43,7 @@
     .pulse-danger {
       animation: pulse-border 1.5s infinite;
     }
-    /* Скрытие стандартного скроллбара */
+
     .no-scrollbar::-webkit-scrollbar {
       display: none;
     }
@@ -52,7 +52,6 @@
       scrollbar-width: none;
     }
 
-    /* Анимации вылетания из левого края */
     @keyframes slideInLeft {
       0% {
         transform: translateX(-100%);
@@ -86,7 +85,7 @@
   <div id="app" class="max-w-md mx-auto bg-brand-cream min-h-screen relative flex flex-col shadow-2xl">
     <div id="loader" class="flex flex-col items-center justify-center flex-1 py-20">
       <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-peach"></div>
-      <p class="mt-4 text-brand-brown font-medium">Подключение к системе заказов...</p>
+      <p class="mt-4 text-brand-brown font-medium">Подключение...</p>
     </div>
   </div>
 
@@ -125,39 +124,35 @@
 
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'vn-buffet-app';
 
-    // Инициализация сервисов Firebase
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    // --- Состояние приложения ---
     let state = {
       screen: 'login', // 'login', 'guest_menu', 'admin_panel'
       tableNumber: null,
       menuData: null,
-      inventory: {}, // Реальное количество порций на складе { itemId: count } из Firestore
-      customNames: {}, // Динамически измененные сотрудником названия блюд { itemId: customName } из Firestore
+      inventory: {},
+      customNames: {},
       activeCategoryId: '',
-      activeSubcategoryId: '', // Активный виртуальный подраздел категории
-      cart: {}, // Храним { itemId: quantity }
-      orders: [], // Real-time список всех заказов из Firestore
-      adminTab: 'new', // 'new' | 'served' | 'inventory' | 'archive'
-      selectedBillOrder: null, // Выбранный заказ для чека
-      selectedAdminTable: null, // Выбранный стол для детального просмотра в панели сотрудника
-      showConfirmOrderModal: false, // Окно проверки корзины
-      showGuestHistoryModal: false, // Модальное окно истории заказов гостя
-      showNoStockModal: false, // Окно ошибки превышения остатка "Нет такого количества"
-      user: null, // Авторизованный в Firebase пользователь
-      isSubmittingOrder: false, // Флаг процесса отправки заказа в базу данных
-      
-      // Свойства состояния безопасности и модальных окон подтверждения
-      securityModal: null, // null или { targetTab: 'inventory' | 'archive' }
+      activeSubcategoryId: '',
+      cart: {},
+      orders: [],
+      adminTab: 'new',
+      selectedBillOrder: null,
+      selectedAdminTable: null,
+      showConfirmOrderModal: false,
+      showGuestHistoryModal: false,
+      showNoStockModal: false,
+      user: null,
+      isSubmittingOrder: false,
+
+      securityModal: null,
       securityPassword: '',
       securityError: false,
       
-      confirmModal: null, // null или { title: '...', text: '...', onConfirm: Function }
+      confirmModal: null,
 
-      // Состояние для циклической смены заголовка в шапке (false - текст, true - картинка logo.jpg)
       showLigoLogo: false, 
     };
 
@@ -166,15 +161,13 @@
     const SECURITY_PASSWORD_RESTRICTED = "0000"; // Пароль для доступа к Остаткам и Архиву
     const MIN_TABLE = 1;
     const MAX_TABLE = 50; 
-    const DEFAULT_STOCK = 30; // По умолчанию даем 30 порций на склад в памяти, если записи в БД нет
-    let headerTimer = null; // Переменная для хранения ID таймера смены заголовка
+    const DEFAULT_STOCK = 1; // По умолчанию даем 1 порци. на склад в памяти, если записи в БД нет
+    let headerTimer = null;
 
-    // Ссылки на коллекции по правилу безопасных путей (RULE 1)
     const ordersCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'orders');
     const inventoryCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'inventory');
     const namesCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'menu_names');
 
-    // Экспонируем функции в глобальную область видимости
     window.addToCart = addToCart;
     window.removeFromCart = removeFromCart;
     window.clearCart = clearCart;
@@ -200,12 +193,10 @@
     window.closeAdminTableModal = closeAdminTableModal;
     window.handleHeaderImageError = handleHeaderImageError;
     window.handleLoginImageError = handleLoginImageError;
-    
-    // Глобальные функции для управления остатками (Inventory)
+
     window.setStockZero = setStockZero;
     window.handleManualStockInput = handleManualStockInput;
 
-    // Глобальные функции защиты и подтверждений
     window.handleSecuritySubmit = handleSecuritySubmit;
     window.closeSecurityModal = closeSecurityModal;
     window.closeConfirmModal = closeConfirmModal;
@@ -213,18 +204,15 @@
     window.requestDeleteAllArchive = requestDeleteAllArchive;
     window.updateSecurityPasswordVal = updateSecurityPasswordVal;
 
-    // --- Вспомогательная функция уведомлений в UI ---
     function showNotification(message, type = 'info') {
       console.log(`[${type.toUpperCase()}] ${message}`);
     }
 
-    // --- Вспомогательный метод для получения актуального названия позиции ---
     function getItemName(item) {
       if (!item) return '';
       return state.customNames[item.id] || item.name;
     }
 
-    // --- Обработчик ошибки загрузки картинки logo.jpg на экране входа ---
     function handleLoginImageError(imgElement) {
       console.warn("Изображение logo.jpg на странице входа не загрузилось. Заменяем на иконку.");
       const fallbackContainer = document.getElementById('login-logo-fallback');
@@ -234,7 +222,6 @@
       }
     }
 
-    // --- Обработчик ошибки загрузки картинки logo.jpg в шапке ---
     function handleHeaderImageError(imgElement) {
       console.warn("Изображение logo.jpg не найдено или не загрузилось. Смена шапки остановлена.");
       if (headerTimer) {
@@ -242,8 +229,7 @@
         headerTimer = null;
       }
       state.showLigoLogo = false;
-      
-      // Возвращаем принудительно видимость тексту и скрываем сломанную картинку
+
       const textEl = document.getElementById('header-text');
       const imgEl = document.getElementById('header-image');
       if (textEl) {
@@ -256,10 +242,9 @@
       }
     }
 
-    // --- Загрузка и инициализация данных ---
     async function initApp() {
       try {
-        // 1. Загрузка файла меню menu.json с обходом кэша браузера и CDN (Cache Busting)
+
         const response = await fetch(`menu.json?t=${Date.now()}`, {
           cache: 'no-store',
           headers: {
@@ -282,7 +267,6 @@
           }
         }
 
-        // 2. Авторизация в Firebase
         const initAuth = async () => {
           if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
             await signInWithCustomToken(auth, __initial_auth_token);
@@ -292,7 +276,6 @@
         };
         await initAuth();
 
-        // 3. Отслеживание состояния авторизации
         onAuthStateChanged(auth, (firebaseUser) => {
           state.user = firebaseUser;
           if (firebaseUser) {
@@ -302,7 +285,6 @@
           }
         });
 
-        // 4. Проверяем параметры из URL (?table=15 или ?admin=true)
         const urlParams = new URLSearchParams(window.location.search);
         const tableParam = urlParams.get('table');
         const adminParam = urlParams.get('admin');
@@ -320,7 +302,7 @@
             localStorage.setItem('bufet_table', tableNum);
           }
         } else {
-          // Проверяем сохраненную сессию
+
           const savedRole = localStorage.getItem('bufet_role');
           const savedTable = localStorage.getItem('bufet_table');
 
@@ -334,7 +316,6 @@
           }
         }
 
-        // 5. Запуск циклического таймера для периодической смены шапки с анимацией вылетания из левого края (раз в 3 секунды)
         if (headerTimer) clearInterval(headerTimer);
         headerTimer = setInterval(() => {
           state.showLigoLogo = !state.showLigoLogo;
@@ -342,14 +323,14 @@
           const imgEl = document.getElementById('header-image');
           if (textEl && imgEl) {
             if (state.showLigoLogo) {
-              // Текст улетает вправо, картинка вылетает из левого края
+
               textEl.classList.remove('slide-in-left');
               textEl.classList.add('slide-out-right', 'pointer-events-none');
               
               imgEl.classList.remove('slide-out-right', 'pointer-events-none');
               imgEl.classList.add('slide-in-left');
             } else {
-              // Картинка улетает вправо, текст вылетает из левого края
+
               imgEl.classList.remove('slide-in-left');
               imgEl.classList.add('slide-out-right', 'pointer-events-none');
               
@@ -357,7 +338,7 @@
               textEl.classList.add('slide-in-left');
             }
           }
-        }, 3000);
+        }, 5000); // Таймер для периодической смены шапки КАРТИНКА / ТЕКСТ
 
         render();
       } catch (error) {
@@ -374,7 +355,6 @@
       }
     }
 
-    // --- Real-time подписка на заказы из Firestore ---
     function subscribeToOrders() {
       if (!state.user) return;
       const q = query(ordersCollectionRef);
@@ -385,7 +365,6 @@
           fetchedOrders.push({ id: doc.id, ...doc.data() });
         });
 
-        // Сортировка: сначала те, кто ждет оплату (waitingForPay), затем по времени создания
         fetchedOrders.sort((a, b) => {
           const aWait = a.waitingForPay ? 1 : 0;
           const bWait = b.waitingForPay ? 1 : 0;
@@ -402,7 +381,6 @@
       });
     }
 
-    // --- Real-time подписка на остатки (inventory) ---
     function subscribeToInventory() {
       if (!state.user) return;
       const q = query(inventoryCollectionRef);
@@ -420,7 +398,6 @@
       });
     }
 
-    // --- Real-time подписка на кастомные названия блюд ---
     function subscribeToCustomNames() {
       if (!state.user) return;
       const q = query(namesCollectionRef);
@@ -437,7 +414,6 @@
       });
     }
 
-    // Обработка ручного остатка
     async function handleManualStockInput(stockId, value) {
       if (!state.user) return;
       
@@ -471,7 +447,6 @@
       }
     }
 
-    // Расчет текущей загруженности корзины по конкретному складу
     function getStockUsageInCart(stockId) {
       let usage = 0;
       Object.entries(state.cart).forEach(([cartItemId, count]) => {
@@ -487,7 +462,6 @@
       return usage;
     }
 
-    // Добавление товара в корзину
     function addToCart(itemId) {
       if (state.isSubmittingOrder) return;
 
@@ -500,9 +474,7 @@
       const portionWeight = item.portionWeight !== undefined ? item.portionWeight : 1;
       const currentUsageInCart = getStockUsageInCart(stockId);
 
-      // Проверка превышения лимита
       if (currentUsageInCart + portionWeight > currentStock) {
-        // Показываем кастомное модальное окно вместо консольного лога
         state.showNoStockModal = true;
         render();
         return;
@@ -512,20 +484,18 @@
       render();
     }
 
-    // Закрытие окна "Нет такого количества"
     function closeNoStockModal() {
       state.showNoStockModal = false;
       render();
     }
 
-    // Изменение вкладок панели администратора с защитой паролем для "inventory" и "archive"
     function switchAdminTab(tabName) {
       if (tabName === 'inventory' || tabName === 'archive') {
         state.securityModal = { targetTab: tabName };
         state.securityPassword = '';
         state.securityError = false;
         render();
-        // Устанавливаем фокус на поле ввода пароля защиты
+
         setTimeout(() => {
           const input = document.getElementById('securityPasswordInput');
           if (input) input.focus();
@@ -537,16 +507,13 @@
       }
     }
 
-    // Обновление значения пин-кода в памяти без принудительного полного перерендара (чтобы не терялся фокус ввода)
     function updateSecurityPasswordVal(val) {
       state.securityPassword = val;
-      // Если введено 4 цифры, автоматически запускаем отправку
       if (val.length === 4) {
         handleSecuritySubmit();
       }
     }
 
-    // Обработка отправки пароля для входа в защищенные разделы
     function handleSecuritySubmit(event) {
       if (event) event.preventDefault();
       
@@ -572,20 +539,17 @@
       }
     }
 
-    // Закрытие модального окна защиты
     function closeSecurityModal() {
       state.securityModal = null;
       state.securityError = false;
       render();
     }
 
-    // Закрытие модального окна подтверждения
     function closeConfirmModal() {
       state.confirmModal = null;
       render();
     }
 
-    // Подтверждение выполнения запланированного действия
     function triggerConfirmAction() {
       if (state.confirmModal && typeof state.confirmModal.onConfirm === 'function') {
         state.confirmModal.onConfirm();
@@ -593,13 +557,11 @@
       closeConfirmModal();
     }
 
-    // Выбор стола в админке
     function selectAdminTable(tableNum) {
       state.selectedAdminTable = String(tableNum);
       render();
     }
 
-    // Закрытие модального окна стола
     function closeAdminTableModal() {
       state.selectedAdminTable = null;
       render();
@@ -620,7 +582,6 @@
       render();
     }
 
-    // Очистка корзины
     function clearCart() {
       if (state.isSubmittingOrder) return;
       state.cart = {};
@@ -628,7 +589,6 @@
       render();
     }
 
-    // Вспомогательный метод поиска товара в меню
     function findMenuItem(itemId) {
       if (!state.menuData || !state.menuData.categories) return null;
       for (const category of state.menuData.categories) {
@@ -638,7 +598,6 @@
       return null;
     }
 
-    // Итоговая сумма в корзине
     function getCartTotal() {
       return Object.entries(state.cart).reduce((total, [itemId, count]) => {
         const item = findMenuItem(itemId);
@@ -646,12 +605,10 @@
       }, 0);
     }
 
-    // Число позиций в корзине
     function getCartCount() {
       return Object.values(state.cart).reduce((a, b) => a + b, 0);
     }
 
-    // Вспомогательная функция для генерации одинаковой верстки списка позиций во всех счетах
     function generateBillItemsMarkup(items) {
       return items.map(item => {
         const originalItem = findMenuItem(item.id);
@@ -669,7 +626,6 @@
       }).join('');
     }
 
-    // Переключение категории с автоматической плавной прокруткой к верху списка
     function changeCategory(catId) {
       state.activeCategoryId = catId;
       
@@ -684,19 +640,15 @@
       }
 
       render();
-      // Фокусировка на начало списка при смене категории
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    // Переключение подкатегории у гостя
     function changeSubcategory(subId) {
       state.activeSubcategoryId = subId;
       render();
-      // Фокусировка на начало списка при смене подразделов внутри категории
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    // Запрос на оплату гостем
     function requestBillPayment() {
       if (!state.user || !state.tableNumber) return;
       
@@ -729,13 +681,11 @@
       render();
     }
 
-    // Модальное окно истории
     function toggleGuestHistoryModal(value) {
       state.showGuestHistoryModal = value;
       render();
     }
 
-    // Выход из системы
     function logout() {
       localStorage.removeItem('bufet_role');
       localStorage.removeItem('bufet_table');
@@ -746,7 +696,6 @@
       render();
     }
 
-    // --- Обработчики событий ---
     function handleGuestLogin(event) {
       event.preventDefault();
       const inputVal = document.getElementById('tableInput').value;
@@ -763,7 +712,6 @@
       }
     }
 
-    // Авторизация сотрудника
     function handleAdminLogin(event) {
       event.preventDefault();
       const passInput = document.getElementById('passwordInput').value;
@@ -783,7 +731,6 @@
       render();
     }
 
-    // --- Отправка нового заказа ---
     async function submitOrder() {
       if (Object.keys(state.cart).length === 0) return;
       if (state.isSubmittingOrder) return;
@@ -807,7 +754,6 @@
           }
         }
 
-        // Финальная проверка остатков
         for (const [stockId, neededPortions] of Object.entries(totalDeductions)) {
           const currentStock = state.inventory[stockId] !== undefined ? state.inventory[stockId] : DEFAULT_STOCK;
           if (neededPortions > currentStock) {
@@ -838,7 +784,6 @@
           total: Number(getCartTotal())
         };
 
-        // 1. Списываем остатки из БД
         for (const [stockId, neededPortions] of Object.entries(totalDeductions)) {
           const currentStock = state.inventory[stockId] !== undefined ? state.inventory[stockId] : DEFAULT_STOCK;
           const updatedStock = Math.max(0, currentStock - neededPortions);
@@ -846,7 +791,6 @@
           await setDoc(itemDocRef, { stock: updatedStock }, { merge: true });
         }
 
-        // 2. Добавляем документ заказа
         await addDoc(ordersCollectionRef, newOrder);
         
         state.cart = {};
@@ -862,7 +806,6 @@
       }
     }
 
-    // Обновление статуса заказа в Firestore (С защитой подтверждением для "paid")
     async function updateOrderStatus(orderId, newStatus) {
       if (!state.user) return;
 
@@ -887,7 +830,6 @@
         };
         render();
       } else {
-        // Для перехода в "отдан" (served) оставляем прямое действие для скорости работы
         try {
           const orderDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId);
           await updateDoc(orderDocRef, { status: newStatus });
@@ -899,7 +841,6 @@
       }
     }
 
-    // Оплата всех заказов стола разом с физическим объединением (С подтверждением)
     function payAllOrdersForTable(tableNum) {
       if (!state.user) return;
 
@@ -955,7 +896,6 @@
       render();
     }
 
-    // Полное удаление заказа из базы данных Firestore с подтверждением
     function deleteOrder(orderId) {
       if (!state.user) return;
       
@@ -978,7 +918,6 @@
       render();
     }
 
-    // --- ... Удаление всего архива ---
     function requestDeleteAllArchive() {
       const paidOrders = state.orders.filter(o => o.status === 'paid');
       if (paidOrders.length === 0) {
@@ -990,7 +929,6 @@
         title: 'УНИЧТОЖИТЬ ВЕСЬ АРХИВ?',
         text: `Вы собираетесь полностью ОЧИСТИТЬ АРХИВ (удалить все оплаченные заказы: ${paidOrders.length} шт.). Все финансовые данные будут потеряны безвозвратно! Продолжить?`,
         onConfirm: () => {
-          // Второе подтверждение для исключения случайных кликов на мобильных
           setTimeout(() => {
             state.confirmModal = {
               title: 'ВЫ УВЕРЕНЫ НА 100%?',
@@ -1015,7 +953,6 @@
       render();
     }
 
-    // Открытие чека
     function openBill(orderId) {
       const order = state.orders.find(o => o.id === orderId);
       if (order) {
@@ -1024,13 +961,11 @@
       }
     }
 
-    // Закрытие чека
     function closeBillModal() {
       state.selectedBillOrder = null;
       render();
     }
 
-    // Печать гостевого счета для конкретного заказа
     function printBill() {
       const printWindow = window.open('', '_blank');
       const order = state.selectedBillOrder;
