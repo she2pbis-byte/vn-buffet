@@ -161,7 +161,7 @@
     const SECURITY_PASSWORD_RESTRICTED = "0000"; // Пароль для доступа к Остаткам и Архиву
     const MIN_TABLE = 1;
     const MAX_TABLE = 50; 
-    const DEFAULT_STOCK = 1; // По умолчанию даем 1 порци. на склад в памяти, если записи в БД нет
+    const DEFAULT_STOCK = 1; // По умолчанию даем 1 порцию на склад в памяти, если записи в БД нет
     let headerTimer = null;
 
     const ordersCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'orders');
@@ -1193,13 +1193,21 @@
               const isPlusDisabled = (currentUsageInCart + portionWeight > currentStock);
               const displayName = getItemName(item);
 
+              // Маленькая картинка блюда с плавным скрытием при ошибке загрузки
+              const imageMarkup = item.image ? `
+                <img src="${item.image}?t=${Date.now()}" class="w-16 h-16 rounded-xl object-cover flex-shrink-0 border border-brand-brown/10 shadow-sm" alt="${displayName}" onerror="this.style.display='none'">
+              ` : '';
+
               return `
                 <div class="bg-white py-3 px-4 rounded-2xl shadow-sm border border-brand-brown/5 flex flex-col justify-between transition hover:shadow relative min-h-[105px]">
-                  <div class="w-full">
-                    <h3 class="font-bold text-brand-dark text-sm leading-snug truncate" title="${displayName}">
-                      ${displayName}
-                    </h3>
-                    <p class="text-[11px] text-brand-brown/70 mt-1 line-clamp-2 leading-relaxed">${item.description || ''}</p>
+                  <div class="flex gap-3 items-start w-full min-w-0">
+                    ${imageMarkup}
+                    <div class="flex-1 min-w-0">
+                      <h3 class="font-bold text-brand-dark text-sm leading-snug truncate" title="${displayName}">
+                        ${displayName}
+                      </h3>
+                      <p class="text-[11px] text-brand-brown/70 mt-1 line-clamp-2 leading-relaxed">${item.description || ''}</p>
+                    </div>
                   </div>
                   
                   <div class="flex items-center justify-between mt-2.5 pt-2 border-t border-brand-brown/5">
@@ -1272,13 +1280,21 @@
             const isPlusDisabled = (currentUsageInCart + portionWeight > currentStock);
             const displayName = getItemName(item);
 
+            // Картинка блюда для корзины
+            const imageMarkup = item.image ? `
+              <img src="${item.image}?t=${Date.now()}" class="w-10 h-10 rounded-lg object-cover flex-shrink-0 border border-brand-brown/10" alt="${displayName}" onerror="this.style.display='none'">
+            ` : '';
+
             return `
-              <div class="flex justify-between items-center bg-brand-cream/30 p-3 rounded-xl border border-brand-brown/10">
-                <div class="flex-1 pr-2">
-                  <h4 class="text-xs font-bold text-brand-dark">${displayName}</h4>
-                  <span class="text-[10px] text-brand-brown">${item.price} ₽ / шт.</span>
+              <div class="flex justify-between items-center bg-brand-cream/30 p-3 rounded-xl border border-brand-brown/10 gap-2">
+                <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                  ${imageMarkup}
+                  <div class="min-w-0 flex-1">
+                    <h4 class="text-xs font-bold text-brand-dark truncate">${displayName}</h4>
+                    <span class="text-[10px] text-brand-brown">${item.price} ₽ / шт.</span>
+                  </div>
                 </div>
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 flex-shrink-0">
                   <button 
                     onclick="${isSubmitting ? '' : `removeFromCart('${item.id}')`}" 
                     ${isSubmitting ? 'disabled' : ''} 
