@@ -224,6 +224,7 @@
           "price": 120,
           "available": true,
           "description": "150 мл.",
+          "image": "images/hot_2.jpg",
           "subcategory": "hot"
         },
         {
