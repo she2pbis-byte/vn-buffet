@@ -520,6 +520,14 @@
           "available": true,
           "description": "100 гр.",
           "subcategory": "hd"
+        },
+        {
+          "id": "hotdis_7006",
+          "name": "Соус Тар-тар",
+          "price": 80,
+          "available": true,
+          "description": "50 гр.",
+          "subcategory": "sous"
         }
       ]
     }
