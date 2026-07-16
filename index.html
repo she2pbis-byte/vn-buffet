@@ -146,6 +146,7 @@
       selectedAdminTable: null, // Выбранный стол для детального просмотра в панели сотрудника
       showConfirmOrderModal: false, // Окно проверки корзины
       showGuestHistoryModal: false, // Модальное окно истории заказов гостя
+      showNoStockModal: false, // Окно ошибки превышения остатка "Нет такого количества"
       user: null, // Авторизованный в Firebase пользователь
       isSubmittingOrder: false, // Флаг процесса отправки заказа в базу данных
       
@@ -191,6 +192,7 @@
     window.changeSubcategory = changeSubcategory;
     window.closeConfirmOrderModal = closeConfirmOrderModal;
     window.toggleGuestHistoryModal = toggleGuestHistoryModal;
+    window.closeNoStockModal = closeNoStockModal;
     window.logout = logout;
     window.requestBillPayment = requestBillPayment;
     window.switchAdminTab = switchAdminTab;
@@ -401,8 +403,6 @@
     }
 
     // --- Real-time подписка на остатки (inventory) ---
-    // ИСПРАВЛЕНО: Полностью удалена опасная авто-запись дефолтных значений в цикле.
-    // Если документа нет в БД, приложение просто использует DEFAULT_STOCK в памяти без принудительной перезаписи.
     function subscribeToInventory() {
       if (!state.user) return;
       const q = query(inventoryCollectionRef);
@@ -500,16 +500,21 @@
       const portionWeight = item.portionWeight !== undefined ? item.portionWeight : 1;
       const currentUsageInCart = getStockUsageInCart(stockId);
 
+      // Проверка превышения лимита
       if (currentUsageInCart + portionWeight > currentStock) {
-        if (portionWeight > 1) {
-          showNotification(`Недостаточно порций вина для целой бутылки! На складе осталось: ${currentStock - currentUsageInCart} порц.`, 'error');
-        } else {
-          showNotification(`Нельзя заказать больше! На складе осталось порций: ${currentStock - currentUsageInCart}`, 'error');
-        }
+        // Показываем кастомное модальное окно вместо консольного лога
+        state.showNoStockModal = true;
+        render();
         return;
       }
 
       state.cart[itemId] = (state.cart[itemId] || 0) + 1;
+      render();
+    }
+
+    // Закрытие окна "Нет такого количества"
+    function closeNoStockModal() {
+      state.showNoStockModal = false;
       render();
     }
 
@@ -1255,6 +1260,8 @@
               const portionWeight = item.portionWeight !== undefined ? item.portionWeight : 1;
               const currentUsageInCart = getStockUsageInCart(stockId);
 
+              // Кнопка "+" становится неактивной, когда лимит на складе исчерпан
+              const isPlusDisabled = (currentUsageInCart + portionWeight > currentStock);
               const displayName = getItemName(item);
 
               return `
@@ -1276,8 +1283,8 @@
                           <span class="font-bold text-xs w-4 text-center text-brand-dark">${countInCart}</span>
                           <button 
                             onclick="addToCart('${item.id}')" 
-                            class="w-5.5 h-5.5 rounded-full bg-white flex items-center justify-center text-brand-peach font-bold hover:bg-brand-peach/10 active:scale-95 transition ${currentUsageInCart + portionWeight > currentStock ? 'opacity-40 cursor-not-allowed' : ''}"
-                            ${currentUsageInCart + portionWeight > currentStock ? 'disabled title="Предел наличия порций"' : ''}
+                            class="w-5.5 h-5.5 rounded-full bg-white flex items-center justify-center text-brand-peach font-bold transition ${isPlusDisabled ? 'opacity-30 cursor-not-allowed' : 'hover:bg-brand-peach/10 active:scale-95'}"
+                            ${isPlusDisabled ? 'disabled title="Предел наличия порций"' : ''}
                           >+</button>
                         </div>
                       ` : `
@@ -1335,6 +1342,7 @@
             const portionWeight = item.portionWeight !== undefined ? item.portionWeight : 1;
             const currentUsageInCart = getStockUsageInCart(stockId);
 
+            const isPlusDisabled = (currentUsageInCart + portionWeight > currentStock);
             const displayName = getItemName(item);
 
             return `
@@ -1352,8 +1360,8 @@
                   <span class="font-bold text-xs text-brand-dark w-4 text-center">${count}</span>
                   <button 
                     onclick="${isSubmitting ? '' : `addToCart('${item.id}')`}" 
-                    ${isSubmitting || (currentUsageInCart + portionWeight > currentStock) ? 'disabled' : ''} 
-                    class="w-6 h-6 rounded-full bg-white border border-brand-brown/20 flex items-center justify-center text-brand-peach font-extrabold hover:bg-brand-peach/10 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                    ${isSubmitting || isPlusDisabled ? 'disabled' : ''} 
+                    class="w-6 h-6 rounded-full bg-white border border-brand-brown/20 flex items-center justify-center text-brand-peach font-extrabold transition disabled:opacity-30 disabled:cursor-not-allowed ${isPlusDisabled ? '' : 'hover:bg-brand-peach/10'}"
                   >+</button>
                 </div>
                 <div class="w-16 text-right font-extrabold text-xs text-brand-dark ml-2">
@@ -1529,6 +1537,30 @@
           `;
         }
 
+        // Всплывающее интерактивное окно превышения доступного остатка
+        let noStockModalHtml = '';
+        if (state.showNoStockModal) {
+          noStockModalHtml = `
+            <div class="fixed inset-0 bg-brand-dark/85 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+              <div class="bg-brand-cream border-2 border-brand-peach p-6 rounded-3xl w-full max-w-xs shadow-2xl space-y-4 animate-fade-in text-center">
+                <div class="mx-auto w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-red-600">
+                  <i data-lucide="alert-circle" class="w-6 h-6"></i>
+                </div>
+                <div>
+                  <h3 class="text-sm font-black text-brand-dark uppercase tracking-wider">Нет такого количества</h3>
+                  <p class="text-[11px] text-brand-brown mt-1.5 leading-relaxed">К сожалению, на складе больше нет свободных порций этого блюда.</p>
+                </div>
+                <button 
+                  onclick="closeNoStockModal()" 
+                  class="w-full bg-brand-peach hover:bg-brand-brown text-white font-bold py-2.5 rounded-xl transition text-xs uppercase tracking-wider shadow-md active:scale-95"
+                >
+                  ПОНЯТНО
+                </button>
+              </div>
+            </div>
+          `;
+        }
+
         // Текущая категория для хедера
         let headerCategoryTitle = currentCategory.title || '';
         if (headerCategoryTitle === 'Безалкогольные напитки') {
@@ -1595,6 +1627,8 @@
           ${confirmOrderModalHtml}
 
           ${guestHistoryModalHtml}
+
+          ${noStockModalHtml}
         `;
       }
 
@@ -1871,7 +1905,6 @@
 
             inventoryListHtml = Object.entries(categoriesWithStocks).map(([catTitle, stocks]) => {
               const itemsRows = stocks.map(stock => {
-                // Если остаток в Firestore равен undefined, используем DEFAULT_STOCK для отображения без перезаписи в БД
                 const currentStockPortions = state.inventory[stock.stockId] !== undefined ? state.inventory[stock.stockId] : DEFAULT_STOCK;
 
                 const isOutOfStock = currentStockPortions <= 0;
