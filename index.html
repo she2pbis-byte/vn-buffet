@@ -1027,7 +1027,6 @@
       printWindow.document.close();
     }
 
-    // --- Функция генерации интерфейса (Рендеринг) ---
     function render() {
       const container = document.getElementById('app');
 
@@ -1058,7 +1057,7 @@
 
             <div class="bg-white border border-brand-brown/10 p-6 rounded-2xl shadow-sm mb-6">
               <h2 class="text-md font-bold text-brand-dark mb-4 flex items-center gap-2 border-b border-brand-cream pb-2">
-                <i data-lucide="user" class="w-4 h-4 text-brand-peach"></i> Я — Гость
+                <i data-lucide="user" class="w-4 h-4 text-brand-peach"></i> Гостевой вход
               </h2>
               <form onsubmit="handleGuestLogin(event)">
                 <div class="grid grid-cols-3 gap-2">
@@ -1080,14 +1079,14 @@
 
             <div class="bg-white border border-brand-brown/10 p-6 rounded-2xl shadow-sm">
               <h2 class="text-md font-bold text-brand-dark mb-4 flex items-center gap-2 border-b border-brand-cream pb-2">
-                <i data-lucide="shield-check" class="w-4 h-4 text-brand-brown"></i> Панель сотрудника
+                <i data-lucide="shield-check" class="w-4 h-4 text-brand-brown"></i> Админ-панель
               </h2>
               <form onsubmit="handleAdminLogin(event)">
                 <div class="grid grid-cols-3 gap-2">
                   <input 
                     type="password" 
                     id="passwordInput" 
-                    placeholder="Введите пароль" 
+                    placeholder="Пароль..." 
                     required
                     class="col-span-2 px-4 py-3 rounded-xl border border-brand-brown/20 bg-brand-cream/30 focus:outline-none focus:ring-2 focus:ring-brand-peach text-brand-dark font-medium text-sm"
                   >
@@ -1100,7 +1099,7 @@
           </div>
 
           <div class="text-center text-xs text-brand-brown/60 pt-4 border-t border-brand-brown/10 mt-4">
-            &copy; 2026 БУФЕТ. Онлайн-заказ по QR-коду со стола.
+            &copy; 2026 БУФЕТ. Онлайн-заказ по QR-коду.
           </div>
         `;
       }
@@ -1110,18 +1109,16 @@
       // ----------------------------------------------------
       else if (state.screen === 'guest_menu') {
         container.className = "max-w-md mx-auto bg-brand-cream min-h-screen relative flex flex-col justify-between shadow-2xl";
-        
-        // Поиск активной категории
+
         const currentCategory = state.menuData && state.menuData.categories
           ? (state.menuData.categories.find(c => c.id === state.activeCategoryId) || state.menuData.categories[0])
           : { title: '', items: [] };
 
-        // Сетка категорий (3 колонки)
         const categoryTabsHtml = state.menuData && state.menuData.categories ? state.menuData.categories.map(cat => {
           const isActive = cat.id === state.activeCategoryId;
           let displayTitle = cat.title;
           if (displayTitle === 'Безалкогольные напитки') {
-            displayTitle = 'Напитки';
+            displayTitle = 'Б/а напитки';
           }
           return `
             <button 
@@ -1137,7 +1134,6 @@
           `;
         }).join('') : '';
 
-        // Вывод виртуальных подразделов, если они есть
         let subcategoriesHtml = '';
         if (currentCategory.subcategories && currentCategory.subcategories.length > 0) {
           const subTabs = currentCategory.subcategories.map(sub => {
@@ -1163,7 +1159,6 @@
           `;
         }
 
-        // Фильтрация блюд с учетом остатков и выбранного подраздела
         let itemsHtml = '';
         if (currentCategory.items) {
           let filteredItems = currentCategory.items.filter(item => {
@@ -1195,7 +1190,6 @@
               const portionWeight = item.portionWeight !== undefined ? item.portionWeight : 1;
               const currentUsageInCart = getStockUsageInCart(stockId);
 
-              // Кнопка "+" становится неактивной, когда лимит на складе исчерпан
               const isPlusDisabled = (currentUsageInCart + portionWeight > currentStock);
               const displayName = getItemName(item);
 
@@ -1238,7 +1232,6 @@
           }
         }
 
-        // Нижняя панель корзины
         const cartCount = getCartCount();
         const cartTotal = getCartTotal();
         const bottomCartHtml = cartCount > 0 ? `
@@ -1263,7 +1256,6 @@
           </div>
         ` : '';
 
-        // Всплывающее интерактивное окно проверки и редактирования заказа перед отправкой
         let confirmOrderModalHtml = '';
         if (state.showConfirmOrderModal && cartCount > 0) {
           const isSubmitting = state.isSubmittingOrder;
@@ -1357,7 +1349,6 @@
           `;
         }
 
-        // Всплывающее окно истории заказов стола
         let guestHistoryModalHtml = '';
         if (state.showGuestHistoryModal) {
           const myOrders = state.orders.filter(o => String(o.table) === String(state.tableNumber));
@@ -1472,7 +1463,6 @@
           `;
         }
 
-        // Всплывающее интерактивное окно превышения доступного остатка
         let noStockModalHtml = '';
         if (state.showNoStockModal) {
           noStockModalHtml = `
@@ -1496,7 +1486,6 @@
           `;
         }
 
-        // Текущая категория для хедера
         let headerCategoryTitle = currentCategory.title || '';
         if (headerCategoryTitle === 'Безалкогольные напитки') {
           headerCategoryTitle = 'Напитки';
@@ -1577,7 +1566,6 @@
         const servedOrders = state.orders.filter(o => o.status === 'served');
         const paidOrders = state.orders.filter(o => o.status === 'paid');
 
-        // Группировка active заказов по столам для вкладки "Столы"
         const groupedByTable = {};
         servedOrders.forEach(order => {
           if (!groupedByTable[order.table]) {
@@ -1608,7 +1596,6 @@
         const hasNewWaiting = newOrders.some(o => o.waitingForPay);
         const hasServedWaiting = Object.values(groupedByTable).some(t => t.waitingForPay);
 
-        // Таб-бар с учетом измененной высоты хедера (sticky top-[65px])
         const tabsHtml = `
           <div class="flex border-b border-brand-brown/10 bg-white sticky top-[65px] z-20 overflow-x-auto no-scrollbar shadow-sm">
             <button 
@@ -1659,7 +1646,6 @@
 
         let ordersHtml = '';
 
-        // Вкладка "Новые"
         if (state.adminTab === 'new') {
           if (newOrders.length === 0) {
             ordersHtml = `
@@ -1728,7 +1714,6 @@
           }
         }
 
-        // Вкладка "На столах"
         else if (state.adminTab === 'served') {
           const activeTablesList = Object.values(groupedByTable);
 
@@ -1795,7 +1780,6 @@
           }
         }
 
-        // Вкладка "Управление остатками"
         else if (state.adminTab === 'inventory') {
           let inventoryListHtml = '';
 
@@ -1917,7 +1901,6 @@
           `;
         }
 
-        // Вкладка "Архив"
         else if (state.adminTab === 'archive') {
           if (paidOrders.length === 0) {
             ordersHtml = `
@@ -1988,7 +1971,6 @@
           }
         }
 
-        // Модальное окно административного чека
         const billModalHtml = state.selectedBillOrder ? `
           <div class="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-50 flex items-start justify-center p-4 pb-24 overflow-y-auto">
             <div class="bg-brand-cream border-2 border-brand-brown p-5 rounded-3xl w-full max-w-sm shadow-2xl relative max-h-[80vh] flex flex-col justify-between my-4 animate-fade-in">
@@ -2027,7 +2009,6 @@
           </div>
         ` : '';
 
-        // Детальное модальное окно для стола по тапу на плашку
         let tableDetailModalHtml = '';
         if (state.selectedAdminTable && groupedByTable[state.selectedAdminTable]) {
           const group = groupedByTable[state.selectedAdminTable];
@@ -2093,7 +2074,6 @@
           `;
         }
 
-        // Рендер модального окна ПИН-кода для защиты Остатков и Архива (Пароль "0000")
         let securityModalHtml = '';
         if (state.securityModal) {
           const sectionTitle = state.securityModal.targetTab === 'inventory' ? 'ОСТАТКИ' : 'АРХИВ';
@@ -2149,7 +2129,6 @@
           `;
         }
 
-        // Рендер кастомного окна подтверждения (ДА / ОТМЕНА) для опасных действий
         let confirmModalHtml = '';
         if (state.confirmModal) {
           confirmModalHtml = `
