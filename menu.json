@@ -114,7 +114,6 @@
           "price": 350,
           "available": true,
           "description": "Крым, белое п/сл, 150 мл",
-          "image": "images/alc_204.jpg",
           "subcategory": "still",
           "portionWeight": 1,
           "stockLinkId": "stock_zb_muskat"
