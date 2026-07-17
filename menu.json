@@ -24,7 +24,6 @@
           "price": 450,
           "available": true,
           "description": "Крым, белое брют, 125 мл",
-          "image": "images/alc_100.jpg",
           "subcategory": "sparkling",
           "portionWeight": 1,
           "stockLinkId": "stock_balaklava_brut"
