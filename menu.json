@@ -64,7 +64,6 @@
           "price": 500,
           "available": true,
           "description": "Франция, белое сухое, 150 мл",
-          "image": "images/alc_202.jpg",
           "subcategory": "still",
           "portionWeight": 1,
           "stockLinkId": "stock_le_grand_sauvignon"
