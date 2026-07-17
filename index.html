@@ -1195,7 +1195,7 @@
 
               // Маленькая картинка блюда с плавным скрытием при ошибке загрузки
               const imageMarkup = item.image ? `
-                <img src="${item.image}?t=${Date.now()}" class="w-10 h-10 rounded-xl object-cover flex-shrink-0 border border-brand-brown/10 shadow-sm" alt="${displayName}" onerror="this.style.display='none'">
+                <img src="${item.image}?t=${Date.now()}" class="w-12 h-12 rounded-xl object-cover flex-shrink-0 border border-brand-brown/10 shadow-sm" alt="${displayName}" onerror="this.style.display='none'">
               ` : '';
 
               return `
