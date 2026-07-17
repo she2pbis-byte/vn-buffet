@@ -64,11 +64,12 @@
           "id": "alc_202",
           "name": "Ле Гран Нуар Совиньон Блан, БОКАЛ",
           "price": 500,
-          "description": "Франция, белое сухое, 150 мл",
           "available": true,
-          "stockLinkId": "stock_le_grand_sauvignon",
+          "description": "Франция, белое сухое, 150 мл",
+          "image": "images/alc_202.jpg",
+          "subcategory": "still",
           "portionWeight": 1,
-          "subcategory": "still"
+          "stockLinkId": "stock_le_grand_sauvignon"
         },
         {
           "id": "alc_203",
