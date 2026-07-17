@@ -74,7 +74,6 @@
           "price": 500,
           "available": true,
           "description": "Франция, красное сухое, 150 мл",
-          "image": "images/alc_203.jpg",
           "subcategory": "still",
           "portionWeight": 1,
           "stockLinkId": "stock_le_grand_pinot"
