@@ -180,7 +180,7 @@
     window.deleteOrder = deleteOrder;
     window.openBill = openBill;
     window.closeBillModal = closeBillModal;
-    window.printBill = printBill;
+    window.printBill = printPrint = printBill;
     window.changeCategory = changeCategory;
     window.changeSubcategory = changeSubcategory;
     window.closeConfirmOrderModal = closeConfirmOrderModal;
@@ -1193,9 +1193,10 @@
               const isPlusDisabled = (currentUsageInCart + portionWeight > currentStock);
               const displayName = getItemName(item);
 
-              // Маленькая картинка блюда с плавным скрытием при ошибке загрузки
+              // 1. Изменен размер изображения с w-16 h-16 (64px) на w-[43px] h-[43px] (уменьшение в 1.5 раза)
+              // 2. Рамка сделана черной и толщиной в 1 пиксель (border border-black)
               const imageMarkup = item.image ? `
-                <img src="${item.image}?t=${Date.now()}" class="w-16 h-16 rounded-xl object-cover flex-shrink-0 border border-brand-brown/10 shadow-sm" alt="${displayName}" onerror="this.style.display='none'">
+                <img src="${item.image}?t=${Date.now()}" class="w-[43px] h-[43px] rounded-xl object-cover flex-shrink-0 border border-black shadow-sm" alt="${displayName}" onerror="this.style.display='none'">
               ` : '';
 
               return `
