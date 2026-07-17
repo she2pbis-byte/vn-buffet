@@ -33,11 +33,12 @@
           "id": "alc_101",
           "name": "Балаклава Мускат, БОКАЛ",
           "price": 450,
-          "description": "Крым, белое полусладкое, 125 мл",
           "available": true,
-          "stockLinkId": "stock_balaklava_muscat",
+          "description": "Крым, белое полусладкое, 125 мл",
+          "image": "images/alc_101.jpg",
+          "subcategory": "sparkling",
           "portionWeight": 1,
-          "subcategory": "sparkling"
+          "stockLinkId": "stock_balaklava_muscat"
         },
         {
           "id": "alc_300",
