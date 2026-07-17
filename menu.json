@@ -149,6 +149,7 @@
           "price": 180,
           "available": true,
           "description": "50 мл.",
+          "image": "images/alc_505.jpg",
           "subcategory": "strong",
           "portionWeight": 1
         }
