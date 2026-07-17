@@ -34,7 +34,6 @@
           "price": 450,
           "available": true,
           "description": "Крым, белое полусладкое, 125 мл",
-          "image": "images/alc_101.jpg",
           "subcategory": "sparkling",
           "portionWeight": 1,
           "stockLinkId": "stock_balaklava_muscat"
