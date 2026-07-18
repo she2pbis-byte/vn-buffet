@@ -147,6 +147,9 @@
       user: null,
       isSubmittingOrder: false,
 
+      // Флаг отслеживания загрузки остатков, чтобы избежать скачков интерфейса
+      isInventoryLoaded: false,
+
       securityModal: null,
       securityPassword: '',
       securityError: false,
@@ -392,6 +395,7 @@
         });
 
         state.inventory = stockData;
+        state.isInventoryLoaded = true; // Фиксируем, что данные загружены
         render();
       }, (error) => {
         console.error("Ошибка при чтении Firestore (остатки):", error);
@@ -1029,6 +1033,21 @@
 
     function render() {
       const container = document.getElementById('app');
+
+      // ----------------------------------------------------
+      // ЗАЩИТА ОТ РЕНДЕРА БЕЗ БАЗЫ ДАННЫХ
+      // (Показывает красивый лоадер, пока Firestore не вернет остатки)
+      // ----------------------------------------------------
+      if (state.screen !== 'login' && !state.isInventoryLoaded) {
+        container.className = "max-w-md mx-auto bg-brand-cream min-h-screen relative flex flex-col justify-center items-center shadow-2xl";
+        container.innerHTML = `
+          <div class="flex flex-col items-center justify-center py-20 animate-fade-in">
+            <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-peach"></div>
+            <p class="mt-4 text-brand-brown font-medium">Получение меню и остатков...</p>
+          </div>
+        `;
+        return;
+      }
 
       // ----------------------------------------------------
       // СЦЕНАРИЙ 1: ЭКРАН ВХОДА (LOGIN SCREEN)
